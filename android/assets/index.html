@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EPC部品カタログ</title>
+<style>
+  body { font-family: sans-serif; margin: 0; background: #f4f4f6; color: #222; }
+  header { background: #b40000; color: #fff; padding: 10px 12px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 50; }
+  header h1 { font-size: 16px; margin: 0; flex: 1; }
+  header p { font-size: 10.5px; margin: 1px 0 0; opacity: .85; }
+  #backBtn { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 6px; font-size: 16px; padding: 4px 12px; visibility: hidden; }
+  #drawerBtn { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 6px; font-size: 16px; padding: 4px 10px; }
+  #homeBtn { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 6px; font-size: 16px; padding: 4px 10px; }
+  .sect { padding: 10px 14px 2px; font-size: 13px; font-weight: bold; color: #555; }
+  .box { padding: 10px 14px; background: #fff; margin-bottom: 6px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .tabs button { flex: 1; padding: 9px; font-size: 15px; border: 1px solid #b40000; background: #fff; color: #b40000; border-radius: 6px; }
+  .tabs button.on { background: #b40000; color: #fff; }
+  input[type=text] { width: 100%; box-sizing: border-box; font-size: 17px; padding: 10px; border: 1px solid #bbb; border-radius: 6px; }
+  #go { width: 100%; margin-top: 10px; padding: 11px; font-size: 16px; background: #222; color: #fff; border: 0; border-radius: 6px; }
+  .row { background: #fff; margin: 7px 12px; padding: 11px 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.12); cursor: pointer; }
+  .row, .hs, button, .fittgl, .subtgl, label { touch-action: manipulation; }
+  .row:active { background: #fdecec; }
+  .big { font-size: 17px; font-weight: bold; }
+  .nm { font-size: 15px; margin-top: 1px; }
+  .meta { font-size: 12.5px; color: #666; margin-top: 3px; }
+  .tags { font-size: 12px; color: #8a6d00; margin-top: 3px; }
+  .badge { display: inline-block; background: #b40000; color: #fff; border-radius: 4px; padding: 1px 7px; font-size: 13px; font-weight: bold; margin-right: 8px; }
+  .price { color: #b40000; font-weight: bold; }
+  #stat { padding: 6px 16px 0; font-size: 13px; color: #555; }
+  /* figure page */
+  #figwrap { position: relative; margin: 8px 8px 0; background: #fff; border: 1px solid #ccc; }
+  #figwrap img { width: 100%; display: block; }
+  .hs { position: absolute; box-sizing: border-box; border: 2px solid transparent; border-radius: 2px; }
+  #figwrap.showall .hs { border-color: rgba(180,0,0,.30); background: rgba(180,0,0,.05); }
+  .hs.hl { border-color: #e00; background: rgba(255,0,0,.18); z-index: 5; }
+  .hs.off { pointer-events: none; opacity: .25; }
+  .part { display: flex; gap: 10px; align-items: baseline; }
+  .part .item { flex: 0 0 34px; text-align: center; background: #eee; border-radius: 4px; font-weight: bold; padding: 2px 0; }
+  .part.hl { background: #ffe9e9; outline: 2px solid #e00; }
+  .part .body { flex: 1; }
+  .fitline { margin-top: 5px; }
+  .fittgl { display: inline-block; font-size: 12.5px; color: #b40000; border: 1px solid #d8a0a0; border-radius: 10px; padding: 2px 10px; background: #fff7f7; cursor: pointer; }
+  .fitnote { display: none; margin-top: 6px; font-size: 12.5px; line-height: 1.6; color: #444; background: #f7f7f9; border-left: 3px solid #b40000; padding: 6px 8px; }
+  .fitnote.open { display: block; }
+  .fitnote .mine { color: #b40000; font-weight: bold; }
+  /* substitute-part memos (v4.6) */
+  .subtgl { display: inline-block; font-size: 12.5px; color: #0b5fa5; border: 1px solid #a0bcd8; border-radius: 10px; padding: 2px 10px; background: #f2f8ff; cursor: pointer; margin-left: 6px; }
+  .subnote { display: none; margin-top: 6px; font-size: 12.5px; line-height: 1.6; color: #444; background: #f4f9ff; border-left: 3px solid #0b5fa5; padding: 6px 8px; }
+  .subnote.open { display: block; }
+  .subnote input[type=text] { font-size: 14px; padding: 7px; margin-bottom: 5px; }
+  .subnote textarea { width: 100%; box-sizing: border-box; font-size: 14px; padding: 7px; border: 1px solid #bbb; border-radius: 6px; margin-bottom: 5px; font-family: sans-serif; }
+  .submemo { border-bottom: 1px dashed #c3d4e6; padding: 5px 0 7px; }
+  .subpn { font-weight: bold; font-size: 15.5px; color: #0b5fa5; }
+  .subpn a { color: #0b5fa5; text-decoration: underline; }
+  .subts { font-size: 11px; color: #888; margin-top: 2px; }
+  .smini { background: #fff; border: 1px solid #999; color: #555; border-radius: 6px; font-size: 12px; padding: 3px 8px; cursor: pointer; }
+  .smini.del2 { color: #900; }
+  .subsave { background: #0b5fa5; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+  .subbadge { display: inline-block; font-size: 12px; color: #0b5fa5; border: 1px solid #a0bcd8; border-radius: 10px; padding: 1px 9px; background: #f2f8ff; margin-top: 3px; }
+  .figbar { display: flex; align-items: center; padding: 8px 12px 0; gap: 10px; flex-wrap: wrap; }
+  .figbar label { font-size: 13px; color: #555; }
+  .figbar .sp { flex: 1; }
+  .mini { background: #fff; border: 1px solid #b40000; color: #b40000; border-radius: 6px; font-size: 13px; padding: 5px 10px; cursor: pointer; }
+  #addbar { display: none; margin: 8px 12px 0; padding: 10px 12px; background: #fff3f3; border: 1px solid #b40000; border-radius: 8px; }
+  #addbar .ab-t { font-size: 14px; margin-bottom: 8px; }
+  #addBtn { width: 100%; padding: 10px; font-size: 15px; background: #b40000; color: #fff; border: 0; border-radius: 6px; }
+  /* cart */
+  .cartrow { display: flex; gap: 8px; align-items: center; }
+  .cartrow .body { flex: 1; }
+  .qtyctl { display: flex; align-items: center; gap: 6px; }
+  .qtyctl button { width: 30px; height: 30px; font-size: 17px; border: 1px solid #999; background: #fff; border-radius: 6px; }
+  .qtyctl .qv { min-width: 26px; text-align: center; font-weight: bold; }
+  .del { background: #fff; border: 1px solid #999; color: #900; border-radius: 6px; font-size: 13px; padding: 6px 8px; }
+  .total { font-size: 17px; font-weight: bold; text-align: right; padding: 12px 16px; }
+  /* v4 additions */
+  .star { float: right; font-size: 22px; color: #bbb; padding: 2px 6px; line-height: 1; }
+  /* v4.8: Material-style inline SVG icons (embedded paths, fully offline) */
+  .mi { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.18em; fill: currentColor; }
+  .mi svg { display: block; width: 100%; height: 100%; }
+  header .mi { width: 20px; height: 20px; vertical-align: middle; }
+  #backBtn .mi { width: 18px; height: 18px; }
+  .star .mi { width: 22px; height: 22px; vertical-align: middle; }
+  .mini .mi { width: 15px; height: 15px; }
+  .packbar .mi, .figph .mi { width: 18px; height: 18px; }
+  .dhead .mi { width: 17px; height: 17px; }
+  .star.on { color: #f5a623; }
+  .packbar { margin: 8px 12px 0; padding: 10px 12px; background: #fff8e1; border: 1px solid #d9a400; border-radius: 8px; font-size: 13.5px; }
+  .packbar button { margin-top: 8px; width: 100%; padding: 9px; font-size: 14.5px; background: #d9a400; color: #fff; border: 0; border-radius: 6px; }
+  .figph { margin: 8px 8px 0; padding: 26px 14px; background: #fff; border: 1px dashed #999; text-align: center; font-size: 14px; color: #555; }
+  .figph button { margin-top: 10px; padding: 10px 18px; font-size: 15px; background: #d9a400; color: #fff; border: 0; border-radius: 6px; }
+  #scrim { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 90; }
+  #drawer { display: none; position: fixed; top: 0; right: 0; bottom: 0; width: 82%; max-width: 340px; background: #f7f7f9; z-index: 100; overflow-y: auto; box-shadow: -3px 0 10px rgba(0,0,0,.3); }
+  #drawer .dhead { background: #333; color: #fff; padding: 12px 14px; font-size: 15px; font-weight: bold; display: flex; align-items: center; }
+  #drawer .dhead .sp { flex: 1; }
+  #drawer .dhead button { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 6px; padding: 3px 10px; }
+  .bmrow { display: flex; gap: 8px; align-items: center; }
+  .bmrow .body { flex: 1; }
+  #toast { display: none; position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: rgba(20,20,20,.92); color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 14px; z-index: 200; max-width: 88%; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <button id="backBtn" onclick="App.back()"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg> 戻る</button>
+  <div style="flex:1">
+    <h1 id="ttl">ホンダ EPC 部品カタログ</h1>
+    <p id="subttl">全カタログ版 v4.8 ・ DISC1 (11CD081 / 2008-01)</p>
+  </div>
+  <button id="homeBtn" onclick="App.goHome()" style="display:none"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></button>
+  <button id="drawerBtn" onclick="App.openDrawer()"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+</header>
+<div id="view"></div>
+<div id="scrim" onclick="App.closeDrawer()"></div>
+<div id="drawer"></div>
+<div id="toast"></div>
+<script>
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function escA(s) { return esc(s).replace(/"/g,'&quot;'); }
+/* v4.8 icons: Material Icons (filled, 24x24) paths embedded inline; no webfont, no network. */
+var ICONS = {
+  star: 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
+  cart: 'M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z',
+  bookmark: 'M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z',
+  box: 'M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z'
+};
+function ic(n) { return '<svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="' + (ICONS[n] || '') + '"/></svg>'; }
+function fmtTs(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function jsq(s) { return String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function fmtPn(p) { return (p && p.length >= 8) ? p.slice(0,5) + '-' + p.slice(5,8) + '-' + p.slice(8) : p; }
+function figLabel(b, f, s) { return b + '-' + f + (s ? '-' + s : ''); }
+function call(fn) { try { return JSON.parse(fn()); } catch (e) { return { error: String(e) }; } }
+function yen(n) { return '¥' + Number(n || 0).toLocaleString(); }
+
+/* ================= persistent stores (localStorage) ================= */
+var CART_KEY = 'epc_cart_v4', CART_KEY_OLD = 'epc_cart_v3';
+function loadCart() {
+  var raw = localStorage.getItem(CART_KEY);
+  if (raw == null) {
+    var old = localStorage.getItem(CART_KEY_OLD);
+    if (old != null) {
+      try {
+        var arr = JSON.parse(old);
+        arr.forEach(function(it, i) { it.key = 'L' + i + '-' + it.partno; }); // legacy keys never collide with 'p<id>'
+        localStorage.setItem(CART_KEY, JSON.stringify(arr));
+        localStorage.removeItem(CART_KEY_OLD);
+        return arr;
+      } catch (e) {}
+    }
+    return [];
+  }
+  try { return JSON.parse(raw || '[]'); } catch (e) { return []; }
+}
+function saveCart(c) { try { localStorage.setItem(CART_KEY, JSON.stringify(c)); } catch (e) {} }
+function cartCount() { return loadCart().length; }
+
+var FAV_KEY = 'epc_fav_cars_v4', BM_KEY = 'epc_sec_bm_v4';
+function loadList(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; } }
+function saveList(key, arr) { try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {} }
+function loadFavs() { return loadList(FAV_KEY); }
+function saveFavs(a) { saveList(FAV_KEY, a); }
+function loadBms() { return loadList(BM_KEY); }
+function saveBms(a) { saveList(BM_KEY, a); }
+
+/* substitute-part memos, keyed by canonical (raw DB) part number.
+   v4.7: the store lives in the native user DB (userdata.db) via the EPC
+   bridge — user data is kept separate from the bundled read-only base DB,
+   so base-DB re-copies never touch it. JS keeps an in-memory cache of
+   { "<partno>": [ {id, sub, text, ts}, ... ] }, refreshed after every
+   write. localStorage epc_subs_v1 is only the legacy (v4.6) migration
+   source: imported once at startup via EPC.subsImport, then removed. */
+var SUBS_KEY = 'epc_subs_v1';
+var subsCache = null;
+function refreshSubs() {
+  var map = {};
+  var res = call(function() { return EPC.subsAll(); });
+  (res.rows || []).forEach(function(r) {
+    (map[r.partno] = map[r.partno] || []).push(
+      { id: r.id, sub: r.sub || '', text: r.text || '', ts: r.ts || '' });
+  });
+  subsCache = map;
+  return map;
+}
+function loadSubs() { return subsCache || refreshSubs(); }
+function subsFor(partno) {
+  var a = loadSubs()[partno];
+  return Array.isArray(a) ? a : [];
+}
+function migrateLegacySubs() {
+  var raw = null;
+  try { raw = localStorage.getItem(SUBS_KEY); } catch (e) {}
+  if (raw == null) return;
+  var n = 0;
+  try {
+    var o = JSON.parse(raw);
+    for (var k in o) if (Array.isArray(o[k])) n += o[k].length;
+  } catch (e) { return; }  // unparsable: keep in place, retry next launch
+  if (n > 0) {
+    var res = call(function() { return EPC.subsImport(raw); });
+    if (!res || res.error) return;  // import failed: keep legacy copy, retry next launch
+  }
+  try { localStorage.removeItem(SUBS_KEY); } catch (e) {}
+}
+
+var App = (function() {
+  var stack = [];       // {view, params, title, sub}
+  var view = document.getElementById('view');
+  var curModel = null;  // {catalog, ids:Set, label} — null = モデル未選択
+  var DEF_SUB = '全カタログ版 v4.8 ・ DISC1 (11CD081 / 2008-01)';
+
+  function push(v, params, title, sub) {
+    stack.push({ view: v, params: params || {}, title: title, sub: sub });
+    render();
+  }
+  function back() {
+    if (drawerOpen) { closeDrawer(); return; }
+    if (stack.length <= 1) { EPC.finish(); return; }
+    stack.pop(); render();
+  }
+  function goHome() {
+    if (drawerOpen) closeDrawer();
+    var cur = stack[stack.length - 1];
+    // 車両コンテキスト（グループ目次/ブロック一覧/図）からは確認してから選択状態を破棄
+    if (cur && (cur.view === 'groups' || cur.view === 'blocks' || cur.view === 'figure')) {
+      if (!confirm('作業を破棄して戻りますか？')) return;
+      curModel = null;
+      figSel = null; figParts = []; figCtx = null;
+    }
+    stack = [{ view: 'home', params: {}, title: null, sub: null }];
+    render();
+  }
+  function render() {
+    var cur = stack[stack.length - 1];
+    document.getElementById('ttl').textContent = cur.title || 'ホンダ EPC 部品カタログ';
+    document.getElementById('subttl').textContent = cur.sub || DEF_SUB;
+    document.getElementById('backBtn').style.visibility = stack.length > 1 ? 'visible' : 'hidden';
+    document.getElementById('homeBtn').style.display = stack.length > 1 ? '' : 'none';
+    window.scrollTo(0, 0);
+    ({ home: renderHome, favs: renderFavs, cars: renderCars, search: renderSearch,
+       variants: renderVariants, groups: renderGroups,
+       blocks: renderBlocks, figure: renderFigure, cart: renderCart })[cur.view](cur.params);
+  }
+  function modelFor(catalog) {
+    return (curModel && curModel.catalog === catalog && curModel.ids) ? curModel : null;
+  }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(t._tm);
+    t._tm = setTimeout(function() { t.style.display = 'none'; }, 2600);
+  }
+
+  /* ---------- image packs ---------- */
+  function packState(catalog) {
+    return call(function() { return EPC.packState(catalog); });
+  }
+  function packBannerHtml(catalog, ps) {
+    if (ps.bundled || ps.imported) return '';
+    return '<div class="packbar">' + ic('box') + ' このカタログの図は画像パック未導入です（部品リストは見られます）。' +
+      'PCで用意した <b>' + esc(catalog) + '.zip</b> を取り込むと図が表示されます（全 ' + (ps.figures || 0) + ' 図）。' +
+      '<button onclick="App.importPack(\'' + catalog + '\')">画像パックを取り込む</button></div>';
+  }
+  function importPack(catalog) {
+    toast(catalog + '.zip を選んでください');
+    EPC.pickPack(catalog);
+  }
+  function onPackImported(catalog, ok, count) {
+    if (ok) {
+      toast('画像パックを取り込みました（' + count + ' 図）: ' + catalog);
+      var cur = stack[stack.length - 1];
+      if (cur && cur.params && cur.params.catalog === catalog) render();
+    } else {
+      toast('取り込みできませんでした（ZIPを確認してください）');
+    }
+  }
+
+  /* ---------- drawer (section bookmarks) ---------- */
+  var drawerOpen = false;
+  function openDrawer() {
+    drawerOpen = true;
+    document.getElementById('scrim').style.display = 'block';
+    var d = document.getElementById('drawer');
+    d.style.display = 'block';
+    renderDrawer();
+  }
+  function closeDrawer() {
+    drawerOpen = false;
+    document.getElementById('scrim').style.display = 'none';
+    document.getElementById('drawer').style.display = 'none';
+  }
+  function renderDrawer() {
+    var bms = loadBms();
+    var html = '<div class="dhead">' + ic('bookmark') + ' 監視セクション<span class="sp"></span>' +
+      '<button onclick="App.closeDrawer()">閉じる</button></div>';
+    if (!bms.length) {
+      html += '<div class="box">まだ登録がありません。<br><span class="meta">図ページの「セクションを登録」ボタンで登録できます。</span></div>';
+    }
+    bms.forEach(function(b, i) {
+      html += '<div class="row bmrow" onclick="App.jumpBm(' + i + ')"><div class="body">' +
+        '<div class="big" style="font-size:15.5px"><span class="badge">' + esc(figLabel(b.block, b.figure, b.sub)) + '</span>' + esc(b.title || '') + '</div>' +
+        '<div class="meta">カタログ: ' + esc(b.catalog) + '</div></div>' +
+        '<button class="del" onclick="App.delBm(event,' + i + ')">削除</button></div>';
+    });
+    document.getElementById('drawer').innerHTML = html;
+  }
+  function jumpBm(i) {
+    var b = loadBms()[i];
+    if (!b) return;
+    closeDrawer();
+    openFigure(b.catalog, b.block, b.figure, b.sub, null);
+  }
+  function delBm(ev, i) {
+    ev.stopPropagation();
+    var bms = loadBms();
+    bms.splice(i, 1);
+    saveBms(bms);
+    renderDrawer();
+  }
+
+  /* ---------- favorite cars ---------- */
+  function favKey(f) { return f.catalog + '|' + (f.idsCsv || '') + '|' + f.label; }
+  function favMatch(x, f) {
+    if (x.catalog !== f.catalog || (x.idsCsv || '') !== (f.idsCsv || '')) return false;
+    // v4.5: labels saved before the grade mojibake fix contain U+FFFD and
+    // can never equal a fresh label; accept those legacy entries by ids.
+    return x.label === f.label || (x.label || '').indexOf('�') >= 0;
+  }
+  function isFav(f) {
+    return loadFavs().some(function(x) { return favMatch(x, f); });
+  }
+  function toggleFavObj(f) {
+    var favs = loadFavs();
+    var idx = -1;
+    favs.forEach(function(x, i) { if (favMatch(x, f)) idx = i; });
+    if (idx >= 0) { favs.splice(idx, 1); saveFavs(favs); return false; }
+    favs.push(f); saveFavs(favs); return true;
+  }
+  function openFav(i) {
+    var f = loadFavs()[i];
+    if (!f) return;
+    if (f.idsCsv) {
+      var ids = new Set();
+      f.idsCsv.split(',').forEach(function(x) { var n = parseInt(x, 10); if (!isNaN(n)) ids.add(n); });
+      curModel = { catalog: f.catalog, ids: ids, label: f.label };
+    } else {
+      curModel = null;
+    }
+    push('groups', { catalog: f.catalog }, 'グループ目次', 'カタログ: ' + f.catalog);
+  }
+  function delFav(ev, i) {
+    ev.stopPropagation();
+    var favs = loadFavs();
+    favs.splice(i, 1);
+    saveFavs(favs);
+    render();
+  }
+
+  /* ---------- home (5-item menu) ---------- */
+  function menuRow(title, meta, onclick) {
+    return '<div class="row" onclick="' + onclick + '"><span class="big">' + title + '</span>' +
+      '<div class="meta">' + meta + '</div></div>';
+  }
+  function renderHome() {
+    var favs = loadFavs();
+    var html = '<div class="sect">メニュー</div>';
+    html += menuRow(ic('star') + ' お気に入り', favs.length ? ('登録 ' + favs.length + ' 件 ・ タップでグループ目次へ') : '登録した車種がここに並びます', 'App.openFavs()');
+    html += menuRow(ic('cart') + ' 買い物リスト', '選択した部品 ' + cartCount() + ' 点', 'App.openCart()');
+    html += menuRow('車種選択', '通称名・型式から車種を選ぶ', 'App.openCars()');
+    html += menuRow('部品番号検索', '例: 16011-PC2-005', 'App.openSearch(\'partno\')');
+    html += menuRow('部品名検索', '例: フロートバルブ', 'App.openSearch(\'name\')');
+    if (curModel) {
+      html += '<div class="box" style="background:#fff3f3">選択中の車種: <b>' + esc(curModel.label) + '</b>' +
+        ' <button class="mini" onclick="App.clearModel()">解除</button>' +
+        '<div class="meta">この車種に適合する部品だけに絞り込めます（図ページ）</div></div>';
+    }
+    view.innerHTML = html;
+  }
+
+  /* ---------- favorites ---------- */
+  function openFavs() { push('favs', {}, 'お気に入り車種', 'タップでグループ目次へ'); }
+  function renderFavs() {
+    var favs = loadFavs();
+    var html = '';
+    if (!favs.length) {
+      html += '<div class="box">まだ登録がありません。<br><span class="meta">車種選択の各行にある星アイコンで登録できます。</span></div>';
+    }
+    favs.forEach(function(f, i) {
+      html += '<div class="row" onclick="App.openFav(' + i + ')">' +
+        '<button class="del" style="float:right" onclick="App.delFav(event,' + i + ')">削除</button>' +
+        '<span class="big" style="font-size:15.5px">' + ic('star') + ' ' + esc(f.label) + '</span>' +
+        '<div class="meta">カタログ: ' + esc(f.catalog) + ' ・ タップでグループ目次へ</div></div>';
+    });
+    view.innerHTML = html;
+  }
+
+  /* ---------- car selection ---------- */
+  var homeCars = null, homeCarQ = '';
+  function openCars() { push('cars', {}, '車種選択', '通称名・型式から選ぶ'); }
+  function renderCars() {
+    var res = call(function() { return EPC.home(); });
+    homeCars = res.cars || [];
+    var html = '<div class="sect">車種から探す（全 ' + homeCars.length + ' 車種）</div>' +
+      '<div class="box"><input id="carq" type="text" placeholder="車種名で絞り込み（例: CITY）" autocomplete="off" value="' + esc(homeCarQ) + '"></div>' +
+      '<div id="carlist"></div>';
+    if (res.error) html += '<div class="box">エラー: ' + esc(res.error) + '</div>';
+    view.innerHTML = html;
+    renderCarList();
+    var cq = document.getElementById('carq');
+    cq.addEventListener('input', function() { homeCarQ = cq.value; renderCarList(); });
+  }
+  function renderCarList() {
+    var el = document.getElementById('carlist');
+    if (!el || !homeCars) return;
+    var q = homeCarQ.trim().toUpperCase();
+    var cars = homeCars.filter(function(c) {
+      return !q || (c.name + ' ' + c.type_full + ' ' + c.type_code).toUpperCase().indexOf(q) >= 0;
+    });
+    var html = '';
+    if (!cars.length) html = '<div class="box">該当する車種がありません</div>';
+    cars.slice(0, 400).forEach(function(c) {
+      html += '<div class="row" onclick="App.openVariants(\'' + c.catalog + '\',\'' + jsq(c.name) + '\',\'' + jsq(c.type_full) + '\')">' +
+        '<span class="big">' + esc(c.name) + '</span> <span class="nm">' + esc(c.type_full) + '</span>' +
+        '<div class="meta">機種コード: ' + esc(c.type_code) + ' ・ カタログ: ' + esc(c.catalog) + '</div></div>';
+    });
+    if (cars.length > 400) html += '<div class="box">先頭400件まで表示しています。車種名で絞り込んでください。</div>';
+    el.innerHTML = html;
+  }
+  function clearModel() { curModel = null; render(); }
+
+  /* ---------- part search (partno / name) ---------- */
+  var searchMode = 'partno';
+  function openSearch(mode) {
+    push('search', { mode: mode }, mode === 'partno' ? '部品番号検索' : '部品名検索', '全カタログから検索');
+  }
+  function renderSearch(p) {
+    searchMode = p.mode || 'partno';
+    var html = '<div class="box">' +
+      '<input id="q" type="text" placeholder="' + (searchMode === 'partno' ? '例: 16011-PC2-005' : '例: フロートバルブ') + '" autocomplete="off">' +
+      '<button id="go" onclick="App.doSearch()">検索</button></div>' +
+      '<div id="stat"></div><div id="sres"></div>';
+    view.innerHTML = html;
+    var q = document.getElementById('q');
+    q.addEventListener('keydown', function(e) { if (e.key === 'Enter') App.doSearch(); });
+  }
+  function doSearch() {
+    var q = document.getElementById('q').value.trim();
+    var stat = document.getElementById('stat'), list = document.getElementById('sres');
+    list.innerHTML = '';
+    if (!q) { stat.textContent = ''; return; }
+    stat.textContent = '検索中…';
+    setTimeout(function() {
+      var res = call(function() { return EPC.search(searchMode, q); });
+      if (res.error) { stat.textContent = 'エラー: ' + res.error; return; }
+      var rows = res.rows || [];
+      var dbCount = rows.length;
+      if (searchMode === 'partno') rows = mergeSubHits(rows, q);
+      stat.textContent = rows.length ? (rows.length + ' 件ヒット' + (dbCount >= 300 ? '（先頭300件まで表示）' : '')) : '見つかりませんでした';
+      var html = '';
+      rows.forEach(function(r) {
+        html += '<div class="row" onclick="App.openFigure(\'' + r.catalog + '\',\'' + jsq(r.block) + '\',\'' + jsq(r.figure) + '\',\'' + jsq(r.sub) + '\',\'' + jsq(r.item) + '\')">' +
+          '<div class="big" style="font-size:16px">' + esc(fmtPn(r.partno)) + '</div>' +
+          (r._subBadge ? '<div><span class="subbadge">代用品 ' + esc(fmtSubPn(r._subBadge)) + ' でヒット</span></div>' : '') +
+          '<div class="nm">' + esc(r.name || '') + '</div>' +
+          '<div class="meta">' + (r.price != null ? '<span class="price">¥' + Number(r.price).toLocaleString() + '</span> ・ ' : '') +
+          esc(r.label || r.catalog) + ' ・ 図: ' + esc(figLabel(r.block, r.figure, r.sub)) + ' 見出 ' + esc(r.item) + '</div></div>';
+      });
+      list.innerHTML = html;
+    }, 30);
+  }
+  /* part-number search: also hit parts whose substitute memo names the
+     query. For every memo whose "sub" (normalized) contains the query,
+     the ORIGINAL part's catalog rows are merged in with a badge
+     (r._subBadge = the registered sub string). Rows identical to a
+     normal hit (same catalog/figure/item) are merged into one row and
+     keep the badge. */
+  function rowKey(r) {
+    // partno must be part of the identity: one figure/item can list
+    // several part numbers (early/late variants), which are distinct rows.
+    return r.partno + '|' + r.catalog + '|' + r.block + '|' + r.figure + '|' + (r.sub || '') + '|' + r.item;
+  }
+  function fmtSubPn(raw) {
+    var n = subNorm(raw);
+    return n.length >= 8 ? fmtPn(n) : String(raw || '');
+  }
+  function mergeSubHits(rows, q) {
+    var nq = subNorm(q);
+    if (!nq) return rows;
+    var all = loadSubs();
+    var byKey = {};
+    rows.forEach(function(r) { byKey[rowKey(r)] = r; });
+    var extra = [];
+    Object.keys(all).forEach(function(partno) {
+      var badge = null;
+      (all[partno] || []).forEach(function(m) {
+        if (badge == null && m.sub && subNorm(m.sub).indexOf(nq) >= 0) badge = m.sub;
+      });
+      if (badge == null) return;
+      var res2 = call(function() { return EPC.search('partno', partno); });
+      (res2.rows || []).forEach(function(r) {
+        if (r.partno !== partno) return;
+        var k = rowKey(r);
+        if (byKey[k]) { if (!byKey[k]._subBadge) byKey[k]._subBadge = badge; }
+        else { r._subBadge = badge; byKey[k] = r; extra.push(r); }
+      });
+    });
+    return rows.concat(extra);
+  }
+
+  /* ---------- variants (model selection + favorites) ---------- */
+  var varCtx = null, varRows = [];
+  function openVariants(catalog, name, typeFull) {
+    push('variants', { catalog: catalog, name: name, typeFull: typeFull }, name + ' ' + typeFull, 'グレード・仕様の選択');
+  }
+  function favForRow(r) {
+    var label = varCtx.name + ' ' + varCtx.typeFull + ' / ' + (r.grade || '(グレードなし)') + ' / ' + r.trans +
+      ' / 号機 ' + r.serial_from + '～' + r.serial_to;
+    return { catalog: varCtx.catalog, idsCsv: r.ids || '', label: label };
+  }
+  function renderVariants(p) {
+    varCtx = p;
+    var res = call(function() { return EPC.variants(p.catalog); });
+    varRows = res.rows || [];
+    var html = packBannerHtml(p.catalog, packState(p.catalog));
+    html += '<div class="sect">仕様を選ぶと、その車種に適合する部品に絞り込めます（星アイコンでお気に入り登録）</div>';
+    var f0 = { catalog: p.catalog, idsCsv: '', label: p.name + ' ' + p.typeFull + '（モデル未選択）' };
+    html += '<div class="row" onclick="App.chooseModel(\'' + p.catalog + '\',null)">' +
+      '<span class="star' + (isFav(f0) ? ' on' : '') + '" onclick="App.toggleFavCat(event)">' + ic('star') + '</span>' +
+      '<span class="big">モデル未選択</span>' +
+      '<div class="meta">カタログ全体を表示（絞り込みなし）</div></div>';
+    varRows.forEach(function(r, i) {
+      var label = (r.grade || '(グレードなし)') + ' / ' + r.trans + ' / ' + r.serial_from + '～' + r.serial_to;
+      html += '<div class="row" onclick="App.chooseModel(\'' + p.catalog + '\',\'' + esc(r.ids || '') + '\',\'' + jsq(label) + '\')">' +
+        '<span class="star' + (isFav(favForRow(r)) ? ' on' : '') + '" onclick="App.toggleFavRow(event,' + i + ')">' + ic('star') + '</span>' +
+        '<span class="big">' + esc(r.grade || '(グレードなし)') + '</span>' +
+        '<div class="meta">' + esc(r.name) + ' ' + esc(r.type_full) + ' ・ ' + esc(r.trans) + ' ・ エンジン ' + esc(r.engine) +
+        ' ・ 号機 ' + esc(r.serial_from) + ' ～ ' + esc(r.serial_to) + '</div>' +
+        (r.tags ? '<div class="tags">装備: ' + esc(r.tags) + '</div>' : '') + '</div>';
+    });
+    if (res.error) html += '<div class="box">エラー: ' + esc(res.error) + '</div>';
+    view.innerHTML = html;
+  }
+  function toggleFavRow(ev, i) {
+    ev.stopPropagation();
+    var r = varRows[i];
+    if (!r) return;
+    var on = toggleFavObj(favForRow(r));
+    ev.target.classList.toggle('on', on);
+    toast(on ? 'お気に入り車種に登録しました' : 'お気に入りを解除しました');
+  }
+  function toggleFavCat(ev) {
+    ev.stopPropagation();
+    var f = { catalog: varCtx.catalog, idsCsv: '', label: varCtx.name + ' ' + varCtx.typeFull + '（モデル未選択）' };
+    var on = toggleFavObj(f);
+    ev.target.classList.toggle('on', on);
+    toast(on ? 'お気に入り車種に登録しました' : 'お気に入りを解除しました');
+  }
+  function chooseModel(catalog, idsCsv, label) {
+    if (idsCsv) {
+      var ids = new Set();
+      idsCsv.split(',').forEach(function(x) { var n = parseInt(x, 10); if (!isNaN(n)) ids.add(n); });
+      curModel = { catalog: catalog, ids: ids, label: label };
+    } else {
+      curModel = null;
+    }
+    push('groups', { catalog: catalog }, 'グループ目次', 'カタログ: ' + catalog);
+  }
+
+  /* ---------- groups / blocks ---------- */
+  function openGroups(catalog) {
+    push('groups', { catalog: catalog }, 'グループ目次', 'カタログ: ' + catalog);
+  }
+  function renderGroups(p) {
+    var res = call(function() { return EPC.groups(p.catalog); });
+    var html = packBannerHtml(p.catalog, packState(p.catalog));
+    var m = modelFor(p.catalog);
+    if (m) html += '<div class="box" style="background:#fff3f3">選択中の車種: <b>' + esc(m.label) + '</b>' +
+      '<div class="meta">図ページで適合する部品だけに絞り込めます</div></div>';
+    (res.rows || []).forEach(function(g) {
+      html += '<div class="row" onclick="App.openBlocks(\'' + p.catalog + '\',' + g.seq + ',\'' + jsq(g.name) + '\')">' +
+        '<span class="big">' + esc(g.name) + '</span>' +
+        '<div class="meta">グループ ' + esc(g.gno) + ' ・ 図 ' + g.nblocks + ' 件</div></div>';
+    });
+    if (res.error) html += '<div class="box">エラー: ' + esc(res.error) + '</div>';
+    view.innerHTML = html;
+  }
+  function openBlocks(catalog, seq, gname) {
+    push('blocks', { catalog: catalog, seq: seq }, gname, 'ブロック一覧');
+  }
+  function renderBlocks(p) {
+    var res = call(function() { return EPC.blocks(p.catalog, p.seq); });
+    var html = '';
+    (res.rows || []).forEach(function(b) {
+      html += '<div class="row" onclick="App.openFigure(\'' + p.catalog + '\',\'' + jsq(b.block) + '\',\'' + jsq(b.figure) + '\',\'' + jsq(b.sub) + '\',null)">' +
+        '<span class="badge">' + esc(figLabel(b.block, b.figure, b.sub)) + '</span>' +
+        '<span class="nm">' + esc(b.title || '') + '</span>' +
+        '<div class="meta">図面コード: ' + esc(b.drawcode) + '</div></div>';
+    });
+    if (res.error) html += '<div class="box">エラー: ' + esc(res.error) + '</div>';
+    view.innerHTML = html;
+  }
+
+  /* ---------- figure ---------- */
+  var figParts = [], figSel = null, figModel = null, figCtx = null, figTitle = '';
+  var fitMemo = {};        // part id -> 適合サマリHTML（図ページ内メモ化）
+  var modelsCache = {};    // catalog -> 整形済みモデル一覧（セッション内キャッシュ）
+  function openFigure(catalog, block, figure, sub, focusItem) {
+    push('figure', { catalog: catalog, block: block, figure: figure, sub: sub, focusItem: focusItem },
+         figLabel(block, figure, sub), 'カタログ: ' + catalog);
+  }
+  function partCodes(r) {
+    return (r.codes || '').split(',').filter(function(x) { return x !== ''; }).map(Number);
+  }
+  function partGroups(r) {
+    try { return JSON.parse(r.gjson || '[]'); } catch (e) { return []; }
+  }
+  function matchedQty(r) {
+    var gs = partGroups(r), i, g;
+    for (i = 0; i < gs.length; i++) {
+      g = gs[i];
+      if (g[0] != null && (g[1].length === 0 || g[1].some(function(c) { return figModel.ids.has(c); }))) return g[0];
+    }
+    return r.qty;
+  }
+  function bmKeyNow() {
+    return figCtx.catalog + '|' + figCtx.block + '|' + figCtx.figure + '|' + figCtx.sub;
+  }
+  function isBmNow() {
+    var k = bmKeyNow();
+    return loadBms().some(function(b) { return (b.catalog + '|' + b.block + '|' + b.figure + '|' + b.sub) === k; });
+  }
+  function toggleBm() {
+    var bms = loadBms(), k = bmKeyNow(), idx = -1;
+    bms.forEach(function(b, i) { if ((b.catalog + '|' + b.block + '|' + b.figure + '|' + b.sub) === k) idx = i; });
+    var btn = document.getElementById('bmBtn');
+    if (idx >= 0) {
+      bms.splice(idx, 1); saveBms(bms);
+      if (btn) btn.innerHTML = ic('bookmark') + ' セクションを登録';
+      toast('セクションの登録を解除しました');
+    } else {
+      bms.push({ catalog: figCtx.catalog, block: figCtx.block, figure: figCtx.figure, sub: figCtx.sub,
+                 title: figTitle });
+      saveBms(bms);
+      if (btn) btn.innerHTML = ic('bookmark') + ' 登録済み（解除）';
+      toast('監視セクションに登録しました（右上のメニューから開けます）');
+    }
+  }
+  function renderFigure(p) {
+    var res = call(function() { return EPC.figure(p.catalog, p.block, p.figure, p.sub); });
+    if (res.error || !res.info) { view.innerHTML = '<div class="box">エラー: ' + esc(res.error || '図が見つかりません') + '</div>'; return; }
+    var info = res.info, W = info.width, H = info.height;
+    figCtx = p; figSel = null; figTitle = info.title || ''; fitMemo = {};
+    figModel = modelFor(p.catalog);
+    document.getElementById('ttl').textContent = figLabel(p.block, p.figure, p.sub) + ' ' + (info.title || '');
+    figParts = (res.parts || []).map(function(r) {
+      var codes = partCodes(r);
+      r._codes = codes;
+      r._matched = !figModel || codes.length === 0 || codes.some(function(c) { return figModel.ids.has(c); });
+      r._qty = figModel ? matchedQty(r) : r.qty;
+      return r;
+    });
+    var ps = packState(p.catalog);
+    var hasImg = !!info.png && (ps.bundled || ps.imported);
+    var html = '<div class="figbar"><label><input type="checkbox" id="showall"> 番号の位置を表示</label>';
+    if (figModel) html += '<label><input type="checkbox" id="filteron" checked> 適合部品だけ表示</label>';
+    html += '<span class="sp"></span>' +
+      '<button class="mini" id="bmBtn" onclick="App.toggleBm()">' + ic('bookmark') + ' ' + (isBmNow() ? '登録済み（解除）' : 'セクションを登録') + '</button>' +
+      '<button class="mini" onclick="App.openCart()">' + ic('cart') + ' 買い物リスト（' + cartCount() + '）</button></div>';
+    if (figModel) {
+      var nFit = figParts.filter(function(r) { return r._matched; }).length;
+      html += '<div id="stat">選択中の車種: ' + esc(figModel.label) + ' ・ 適合 ' + nFit + ' / 全 ' + figParts.length + ' 件</div>';
+    }
+    if (!info.png) {
+      html += '<div class="figph">このセクションの画像データはありません<br><span class="meta">部品リストは下に表示されます</span></div>';
+    } else if (!hasImg) {
+      html += '<div class="figph">' + ic('box') + ' 画像パック未導入のため図を表示できません<br>' +
+        '<span class="meta">PCで用意した ' + esc(p.catalog) + '.zip を取り込んでください（部品リストは下に表示されます）</span><br>' +
+        '<button onclick="App.importPack(\'' + p.catalog + '\')">画像パックを取り込む</button></div>';
+    } else {
+      html += '<div id="figwrap"><img src="fig/' + esc(info.png) + '">';
+      (res.hotspots || []).forEach(function(h) {
+        html += '<div class="hs" data-item="' + esc(h.item) + '" style="left:' + (h.x1 / W * 100) + '%;top:' + (h.y1 / H * 100) +
+          '%;width:' + ((h.x2 - h.x1) / W * 100) + '%;height:' + ((h.y2 - h.y1) / H * 100) + '%" onclick="App.pickItem(\'' + jsq(h.item) + '\')"></div>';
+      });
+      html += '</div>';
+    }
+    html += '<div id="addbar"></div><div class="sect">部品リスト（行タップで図の番号をハイライト／再タップで解除）</div>';
+    var allSubs = loadSubs();
+    figParts.forEach(function(r) {
+      var nSub = (allSubs[r.partno] || []).length;
+      html += '<div class="row part" id="prow-' + r.id + '" data-item="' + esc(r.item) + '" onclick="App.pickPart(' + r.id + ')">' +
+        '<div class="item">' + esc(r.item) + '</div><div class="body">' +
+        '<div class="big" style="font-size:15.5px">' + esc(fmtPn(r.partno)) + '</div>' +
+        '<div class="nm" style="font-size:14px">' + esc(r.name || '') + '</div>' +
+        '<div class="meta">' + (r.price != null ? '<span class="price">¥' + Number(r.price).toLocaleString() + '</span>' : '') +
+        (r._qty != null ? ' ・ 個数 ' + r._qty : '') + '</div>' +
+        '<div class="fitline">' +
+        '<span class="fittgl" id="fittgl-' + r.id + '" onclick="App.toggleFit(event,' + r.id + ')">適合 ▸</span>' +
+        '<span class="subtgl" id="subtgl-' + r.id + '" onclick="App.toggleSub(event,' + r.id + ')">代用品' +
+        (nSub ? '（' + nSub + '）' : '') + ' ▸</span>' +
+        '<div class="fitnote" id="fit-' + r.id + '"></div>' +
+        '<div class="subnote" id="sub-' + r.id + '" onclick="event.stopPropagation()"></div></div></div></div>';
+    });
+    view.innerHTML = html;
+    var sa = document.getElementById('showall');
+    if (sa) sa.addEventListener('change', function(e) {
+      var fw = document.getElementById('figwrap');
+      if (fw) fw.className = e.target.checked ? 'showall' : '';
+    });
+    var fchk = document.getElementById('filteron');
+    if (fchk) fchk.addEventListener('change', function() { applyFilter(); });
+    applyFilter();
+    if (p.focusItem) setTimeout(function() { App.pickItem(p.focusItem); }, 60);
+  }
+  function filterOn() {
+    var c = document.getElementById('filteron');
+    return !!(figModel && c && c.checked);
+  }
+  function applyFilter() {
+    var on = filterOn();
+    var visibleItems = {};
+    figParts.forEach(function(r) {
+      var row = document.getElementById('prow-' + r.id);
+      var vis = !on || r._matched;
+      if (row) row.style.display = vis ? '' : 'none';
+      if (vis) visibleItems[r.item] = true;
+    });
+    var spots = document.querySelectorAll('.hs');
+    for (var i = 0; i < spots.length; i++) {
+      spots[i].classList.toggle('off', !visibleItems[spots[i].getAttribute('data-item')]);
+    }
+    if (figSel) {
+      var sel = figParts.filter(function(r) { return r.id === figSel.pid; })[0];
+      if (sel && on && !sel._matched) clearSel();
+    }
+  }
+  function selectPart(part, scrollToRow) {
+    figSel = { pid: part.id, item: part.item };
+    var rows = document.querySelectorAll('.part'), spots = document.querySelectorAll('.hs'), i;
+    for (i = 0; i < rows.length; i++) rows[i].classList.toggle('hl', rows[i].id === 'prow-' + part.id);
+    for (i = 0; i < spots.length; i++) spots[i].classList.toggle('hl', spots[i].getAttribute('data-item') === part.item);
+    var bar = document.getElementById('addbar');
+    bar.style.display = 'block';
+    bar.innerHTML = '<div class="ab-t">選択中: <b>' + esc(fmtPn(part.partno)) + '</b> ' + esc(part.name || '') +
+      (part.price != null ? ' ・ <span class="price">' + yen(part.price) + '</span>' : '') +
+      (part._qty != null ? ' ・ 個数 ' + part._qty : '') + '</div>' +
+      '<button id="addBtn" onclick="App.addToCart()">買い物リストに追加</button>';
+    if (scrollToRow) {
+      var row = document.getElementById('prow-' + part.id);
+      if (row) row.scrollIntoView({ block: 'center' });
+    } else {
+      var fw = document.getElementById('figwrap');
+      if (fw) fw.scrollIntoView({ block: 'start' });
+    }
+  }
+  function clearSel() {
+    figSel = null;
+    var rows = document.querySelectorAll('.part'), spots = document.querySelectorAll('.hs'), i;
+    for (i = 0; i < rows.length; i++) rows[i].classList.remove('hl');
+    for (i = 0; i < spots.length; i++) spots[i].classList.remove('hl');
+    var bar = document.getElementById('addbar');
+    if (bar) { bar.style.display = 'none'; bar.innerHTML = ''; }
+  }
+  function pickPart(pid) {
+    if (figSel && figSel.pid === pid) { clearSel(); return; }
+    var part = figParts.filter(function(r) { return r.id === pid; })[0];
+    if (part) selectPart(part, false);
+  }
+  function pickItem(item) {
+    if (figSel && figSel.item === item) { clearSel(); return; }
+    var on = filterOn();
+    var cand = figParts.filter(function(r) { return r.item === item && (!on || r._matched); });
+    if (!cand.length) cand = figParts.filter(function(r) { return r.item === item; });
+    if (cand.length) selectPart(cand[0], true);
+  }
+  function addToCart() {
+    if (!figSel) return;
+    var part = figParts.filter(function(r) { return r.id === figSel.pid; })[0];
+    if (!part) return;
+    var cart = loadCart();
+    var key = 'p' + part.id;
+    var found = null;
+    cart.forEach(function(it) { if (it.key === key) found = it; });
+    var addQty = (part._qty != null && part._qty > 0) ? part._qty : 1;
+    if (found) found.qty += addQty;
+    else cart.push({ key: key, partno: part.partno, name: part.name || '', price: part.price,
+                     qty: addQty, src: figCtx.catalog + ' ' + figLabel(figCtx.block, figCtx.figure, figCtx.sub) });
+    saveCart(cart);
+    var btn = document.getElementById('addBtn');
+    if (btn) { btn.textContent = '追加しました ✓（買い物リスト ' + cart.length + ' 点）'; }
+  }
+
+  /* ---------- fitment notes （適合表示） ---------- */
+  function catalogModels(catalog) {
+    if (modelsCache.hasOwnProperty(catalog)) return modelsCache[catalog];
+    var res = call(function() { return EPC.variants(catalog); });
+    var rows = (res.rows || []).map(function(r) {
+      var ids = new Set();
+      (r.ids || '').split(',').forEach(function(x) { var n = parseInt(x, 10); if (!isNaN(n)) ids.add(n); });
+      return { name: r.name || '', grade: r.grade || '', trans: r.trans || '', engine: r.engine || '',
+               from: r.serial_from || '', to: r.serial_to || '',
+               fnum: parseInt(r.serial_from, 10), tnum: parseInt(r.serial_to, 10), ids: ids };
+    });
+    modelsCache[catalog] = rows;
+    return rows;
+  }
+  function fitTextFor(part) {
+    if (fitMemo.hasOwnProperty(part.id)) return fitMemo[part.id];
+    var txt = computeFitText(part);
+    fitMemo[part.id] = txt;
+    return txt;
+  }
+  function computeFitText(part) {
+    var codes = part._codes || [];
+    if (!codes.length) return '適合情報なし';
+    var models = catalogModels(figCtx.catalog);
+    if (!models.length) return '適合情報なし';
+    var cs = {};
+    codes.forEach(function(c) { cs[c] = true; });
+    var matched = models.filter(function(m) {
+      var hit = false;
+      m.ids.forEach(function(id) { if (cs[id]) hit = true; });
+      return hit;
+    });
+    var suffix = (figModel && part._matched) ? '<br><span class="mine">✓ 選択中の車種に適合</span>' : '';
+    if (!matched.length) return '適合するモデルがデータにありません';
+    if (matched.length === models.length) return '全車適合' + suffix;
+    var minF = Infinity, maxT = -Infinity;
+    models.forEach(function(m) {
+      if (!isNaN(m.fnum) && m.fnum < minF) minF = m.fnum;
+      if (!isNaN(m.tnum) && m.tnum > maxT) maxT = m.tnum;
+    });
+    function fmtRange(f, t) {
+      if (f === minF && t === maxT) return '全号機';
+      if (f === minF) return '〜' + t;
+      if (t === maxT) return f + '〜';
+      return f + '〜' + t;
+    }
+    var names = [], byName = {};
+    matched.forEach(function(m) {
+      if (!byName[m.name]) { byName[m.name] = []; names.push(m.name); }
+      byName[m.name].push(m);
+    });
+    names.sort();
+    var multiName = names.length > 1;
+    var sections = names.map(function(name) {
+      var ms = byName[name];
+      var engines = {};
+      ms.forEach(function(m) { engines[m.engine] = true; });
+      var multiEng = Object.keys(engines).length > 1;
+      var gmap = {}, gkeys = [];
+      ms.forEach(function(m) {
+        var key = m.grade + '\u0001' + m.trans + '\u0001' + (multiEng ? m.engine : '');
+        if (!gmap[key]) {
+          gmap[key] = { grade: m.grade, trans: m.trans, engine: multiEng ? m.engine : '', pairs: [] };
+          gkeys.push(key);
+        }
+        gmap[key].pairs.push(m);
+      });
+      var groups = gkeys.map(function(k) { return gmap[k]; });
+      groups.forEach(function(g) {
+        var nums = [], raws = [], seenRaw = {};
+        g.pairs.forEach(function(m) {
+          if (!isNaN(m.fnum) && !isNaN(m.tnum)) nums.push([m.fnum, m.tnum]);
+          else { var s = m.from + '〜' + m.to; if (!seenRaw[s]) { seenRaw[s] = true; raws.push(s); } }
+        });
+        nums.sort(function(a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
+        var merged = [];
+        nums.forEach(function(pr) {
+          var last = merged[merged.length - 1];
+          if (last && pr[0] <= last[1] + 1) { if (pr[1] > last[1]) last[1] = pr[1]; }
+          else merged.push([pr[0], pr[1]]);
+        });
+        g.minF = merged.length ? merged[0][0] : Infinity;
+        g.text = merged.map(function(pr) { return fmtRange(pr[0], pr[1]); }).concat(raws).join('、');
+      });
+      groups.sort(function(a, b) {
+        return (a.minF - b.minF) ||
+          (a.grade < b.grade ? -1 : a.grade > b.grade ? 1 : 0) ||
+          (a.trans < b.trans ? -1 : a.trans > b.trans ? 1 : 0);
+      });
+      var parts = groups.map(function(g) {
+        var label = esc(g.grade || '(グレードなし)') + (g.trans ? '・' + esc(g.trans) : '') +
+          (g.engine ? '・' + esc(g.engine) : '');
+        return label + ' ' + esc(g.text);
+      });
+      return (multiName ? esc(name) + ': ' : '') + parts.join(' / ');
+    });
+    return '適合: ' + sections.join(' ｜ ') + suffix;
+  }
+  function toggleFit(ev, pid) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    var note = document.getElementById('fit-' + pid);
+    var tgl = document.getElementById('fittgl-' + pid);
+    if (!note) return;
+    var open = note.classList.toggle('open');
+    if (tgl) tgl.textContent = open ? '適合 ▾' : '適合 ▸';
+    if (open && !note.getAttribute('data-done')) {
+      var part = figParts.filter(function(r) { return r.id === pid; })[0];
+      note.innerHTML = part ? fitTextFor(part) : '適合情報なし';
+      note.setAttribute('data-done', '1');
+    }
+  }
+
+  /* ---------- substitute-part memos （代用品メモ） ---------- */
+  var subEdit = {};          // {pid, id}: memo (user-DB row id) currently loaded into the form
+  var subJumpCache = {};     // normalized sub partno -> first exact search row | null
+  function subNorm(s) { return String(s || '').toUpperCase().replace(/[\s\-]/g, ''); }
+  function subTarget(normPn) {
+    // exact part-number lookup via the existing bridge search (hyphens are
+    // stripped bridge-side too); first exact hit becomes the jump target.
+    if (subJumpCache.hasOwnProperty(normPn)) return subJumpCache[normPn];
+    var hit = null;
+    if (normPn) {
+      var res = call(function() { return EPC.search('partno', normPn); });
+      (res.rows || []).forEach(function(r) { if (!hit && r.partno === normPn) hit = r; });
+    }
+    subJumpCache[normPn] = hit;
+    return hit;
+  }
+  function partByPid(pid) {
+    return figParts.filter(function(r) { return r.id === pid; })[0] || null;
+  }
+  function updateSubTgl(pid, open) {
+    var tgl = document.getElementById('subtgl-' + pid);
+    if (!tgl) return;
+    var part = partByPid(pid);
+    var n = part ? subsFor(part.partno).length : 0;
+    tgl.textContent = '代用品' + (n ? '（' + n + '）' : '') + (open ? ' ▾' : ' ▸');
+  }
+  function toggleSub(ev, pid) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    var note = document.getElementById('sub-' + pid);
+    if (!note) return;
+    var open = note.classList.toggle('open');
+    updateSubTgl(pid, open);
+    if (open) {
+      var part = partByPid(pid);
+      if (part) renderSubNote(part);
+    }
+  }
+  function renderSubNote(part) {
+    var note = document.getElementById('sub-' + part.id);
+    if (!note) return;
+    var memos = subsFor(part.partno);
+    var editId = (subEdit.pid === part.id) ? subEdit.id : null;
+    var em = null;
+    if (editId != null) memos.forEach(function(m) { if (m.id === editId) em = m; });
+    var html = '';
+    if (!memos.length) html += '<div class="meta">登録済みメモはありません</div>';
+    memos.forEach(function(m, i) {
+      html += '<div class="submemo">';
+      if (m.sub) {
+        var norm = subNorm(m.sub);
+        var tgt = norm ? subTarget(norm) : null;
+        var disp = norm.length >= 8 ? fmtPn(norm) : m.sub;
+        if (tgt) {
+          html += '<div class="subpn"><a href="javascript:void(0)" onclick="App.jumpSub(event,\'' +
+            tgt.catalog + '\',\'' + jsq(tgt.block) + '\',\'' + jsq(tgt.figure) + '\',\'' +
+            jsq(tgt.sub) + '\',\'' + jsq(tgt.item) + '\')">' + esc(disp) + '</a>' +
+            ' <span class="meta">代用品（タップで図へ）</span></div>';
+        } else {
+          html += '<div class="subpn">' + esc(disp) + ' <span class="meta">代用品</span></div>';
+        }
+      }
+      if (m.text) html += '<div>' + esc(m.text).replace(/\n/g, '<br>') + '</div>';
+      html += '<div class="subts">' + esc(fmtTs(m.ts)) +
+        ' <button class="smini" onclick="App.editSub(' + part.id + ',' + m.id + ')">編集</button>' +
+        ' <button class="smini del2" onclick="App.delSub(' + part.id + ',' + m.id + ')">削除</button></div>';
+      html += '</div>';
+    });
+    html += '<div style="margin-top:6px">' +
+      '<input type="text" id="subpn-' + part.id + '" placeholder="代用部品番号（任意）例: 16011-PC2-671" value="' +
+      (em ? escA(em.sub || '') : '') + '">' +
+      '<textarea id="subtx-' + part.id + '" rows="2" placeholder="メモ（例: ○○用が流用可、要加工など）">' +
+      (em ? esc(em.text || '') : '') + '</textarea>' +
+      '<button class="subsave" onclick="App.saveSub(' + part.id + ')">' + (em ? '上書き保存' : 'メモを保存') + '</button>' +
+      (em ? ' <button class="smini" onclick="App.cancelEditSub(' + part.id + ')">編集をやめる</button>' : '') +
+      '</div>';
+    note.innerHTML = html;
+  }
+  function saveSub(pid) {
+    var part = partByPid(pid);
+    if (!part) return;
+    var pnEl = document.getElementById('subpn-' + pid);
+    var txEl = document.getElementById('subtx-' + pid);
+    var sub = pnEl ? pnEl.value.trim() : '';
+    var text = txEl ? txEl.value.trim() : '';
+    if (!sub && !text) { toast('代用部品番号かメモを入力してください'); return; }
+    var ts = new Date().toISOString();
+    var res;
+    if (subEdit.pid === pid && subEdit.id != null) {
+      var eid = subEdit.id;
+      res = call(function() { return EPC.subUpdate(eid, sub, text, ts); });
+    } else {
+      var partno = part.partno;
+      res = call(function() { return EPC.subAdd(partno, sub, text, ts); });
+    }
+    if (!res || res.error) { toast('代用品メモの保存に失敗しました'); return; }
+    refreshSubs();
+    subEdit = {};
+    renderSubNote(part);
+    updateSubTgl(pid, true);
+    toast('代用品メモを保存しました');
+  }
+  function editSub(pid, id) {
+    var part = partByPid(pid);
+    if (!part) return;
+    subEdit = { pid: pid, id: id };
+    renderSubNote(part);
+    var el = document.getElementById('subpn-' + pid);
+    if (el) el.focus();
+  }
+  function cancelEditSub(pid) {
+    subEdit = {};
+    var part = partByPid(pid);
+    if (part) renderSubNote(part);
+  }
+  function delSub(pid, id) {
+    var part = partByPid(pid);
+    if (!part) return;
+    if (!confirm('この代用品メモを削除しますか？')) return;
+    var res = call(function() { return EPC.subDelete(id); });
+    if (!res || res.error) { toast('代用品メモの削除に失敗しました'); return; }
+    refreshSubs();
+    if (subEdit.pid === pid) subEdit = {};
+    renderSubNote(part);
+    updateSubTgl(pid, true);
+    toast('代用品メモを削除しました');
+  }
+  function jumpSub(ev, catalog, block, figure, sub, item) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    openFigure(catalog, block, figure, sub, item || null);
+  }
+
+  /* ---------- cart ---------- */
+  function openCart() { push('cart', {}, '買い物リスト', '選択した部品の一覧'); }
+  function renderCart() {
+    var cart = loadCart();
+    if (!cart.length) {
+      view.innerHTML = '<div class="box">買い物リストは空です。<br><span class="meta">図ページで部品を選ぶと「買い物リストに追加」ボタンが出ます。</span></div>';
+      return;
+    }
+    var html = '', total = 0;
+    cart.forEach(function(it, idx) {
+      var line = (it.price != null ? it.price : 0) * it.qty;
+      total += line;
+      html += '<div class="row cartrow"><div class="body">' +
+        '<div class="big" style="font-size:15.5px">' + esc(fmtPn(it.partno)) + '</div>' +
+        '<div class="nm" style="font-size:14px">' + esc(it.name) + '</div>' +
+        '<div class="meta">' + esc(it.src) + ' ・ 単価 ' + (it.price != null ? yen(it.price) : '―') +
+        ' ・ 小計 <span class="price">' + yen(line) + '</span></div></div>' +
+        '<div class="qtyctl"><button onclick="App.cartQty(' + idx + ',-1)">−</button>' +
+        '<span class="qv">' + it.qty + '</span>' +
+        '<button onclick="App.cartQty(' + idx + ',1)">＋</button></div>' +
+        '<button class="del" onclick="App.cartDel(' + idx + ')">削除</button></div>';
+    });
+    html += '<div class="total">合計 ' + yen(total) + '</div>';
+    html += '<div class="box"><button class="mini" onclick="App.cartClear()">リストを空にする</button></div>';
+    view.innerHTML = html;
+  }
+  function cartQty(idx, d) {
+    var cart = loadCart();
+    if (!cart[idx]) return;
+    cart[idx].qty += d;
+    if (cart[idx].qty <= 0) cart.splice(idx, 1);
+    saveCart(cart); renderCart();
+  }
+  function cartDel(idx) {
+    var cart = loadCart();
+    cart.splice(idx, 1);
+    saveCart(cart); renderCart();
+  }
+  function cartClear() {
+    if (!confirm('買い物リストを空にしますか？')) return;
+    saveCart([]); renderCart();
+  }
+
+  migrateLegacySubs();   // v4.6 localStorage → user DB (once, guarded natively)
+  refreshSubs();         // warm the in-memory subs cache from the user DB
+  push('home', {}, null, null);
+  return { back: back, goHome: goHome, openFavs: openFavs, openCars: openCars,
+           openSearch: openSearch, doSearch: doSearch, openVariants: openVariants,
+           chooseModel: chooseModel, clearModel: clearModel,
+           openGroups: openGroups, openBlocks: openBlocks, openFigure: openFigure,
+           pickPart: pickPart, pickItem: pickItem, addToCart: addToCart, toggleFit: toggleFit,
+           toggleSub: toggleSub, saveSub: saveSub, editSub: editSub, cancelEditSub: cancelEditSub,
+           delSub: delSub, jumpSub: jumpSub,
+           openCart: openCart, cartQty: cartQty, cartDel: cartDel, cartClear: cartClear,
+           openDrawer: openDrawer, closeDrawer: closeDrawer, jumpBm: jumpBm, delBm: delBm,
+           toggleBm: toggleBm, toggleFavRow: toggleFavRow, toggleFavCat: toggleFavCat,
+           openFav: openFav, delFav: delFav, importPack: importPack, onPackImported: onPackImported };
+})();
+window.App = App;
+</script>
+</body>
+</html>

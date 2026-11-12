@@ -1,0 +1,26 @@
+# Honda EPC 本体データ・派生データ（著作権物。再配布しない）
+cd/
+fd/
+figures/
+packs/
+ui-ref/
+figtest/
+*.sqlite
+*.db.bak
+
+# 生成物・ビルド中間物
+*.log
+*.out
+__pycache__/
+android/classes/
+android/dex/
+android/app-unsigned.apk
+android/app-aligned.apk
+android/assets/epc_v4.db
+android/assets/fig/
+ipad/*.html
+
+# 配布物と署名鍵（鍵は絶対に公開しない）
+*.apk
+*.idsig
+android/debug.keystore
