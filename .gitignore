@@ -24,3 +24,8 @@ ipad/*.html
 *.apk
 *.idsig
 android/debug.keystore
+
+# コンバーター（converter/）の生成物 — 変換データはコミットしない
+out/
+work/
+epc_v4.db
