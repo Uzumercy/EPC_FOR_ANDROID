@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EPC部品カタログ</title>
 <style>
+  /* v4.9.2: OCR-B for part numbers and prices only (bundled font, public domain) */
+  @font-face { font-family: 'OCRB'; src: url('OCRB.otf') format('opentype'); }
+  .ocrb { font-family: 'OCRB', 'Noto Sans Mono CJK JP', monospace; white-space: nowrap; }
   body { font-family: sans-serif; margin: 0; background: #f4f4f6; color: #222; }
   header { background: #b40000; color: #fff; padding: 10px 12px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 50; }
   header h1 { font-size: 16px; margin: 0; flex: 1; }
@@ -97,6 +100,11 @@
   #drawer .dhead button { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 6px; padding: 3px 10px; }
   .bmrow { display: flex; gap: 8px; align-items: center; }
   .bmrow .body { flex: 1; }
+  /* v4.9.1: reverse-lookup facet filters + in-catalog search */
+  select { touch-action: manipulation; }
+  .facetbar { padding: 10px 14px 4px; background: #fff; margin-bottom: 6px; }
+  .facetbar select { width: 100%; box-sizing: border-box; font-size: 15px; padding: 9px; border: 1px solid #bbb; border-radius: 6px; background: #fff; margin-bottom: 8px; }
+  .facetbar .mini { margin-bottom: 4px; }
   #toast { display: none; position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: rgba(20,20,20,.92); color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 14px; z-index: 200; max-width: 88%; text-align: center; }
 </style>
 </head>
@@ -105,7 +113,7 @@
   <button id="backBtn" onclick="App.back()"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg> 戻る</button>
   <div style="flex:1">
     <h1 id="ttl">ホンダ EPC 部品カタログ</h1>
-    <p id="subttl">全カタログ版 v4.8 ・ DISC1 (11CD081 / 2008-01)</p>
+    <p id="subttl">全カタログ版 v5.0 ・ DISC1+DISC2 (11CD081 / 21CD08X / 21CD10Z)</p>
   </div>
   <button id="homeBtn" onclick="App.goHome()" style="display:none"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></button>
   <button id="drawerBtn" onclick="App.openDrawer()"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
@@ -212,7 +220,7 @@ var App = (function() {
   var stack = [];       // {view, params, title, sub}
   var view = document.getElementById('view');
   var curModel = null;  // {catalog, ids:Set, label} — null = モデル未選択
-  var DEF_SUB = '全カタログ版 v4.8 ・ DISC1 (11CD081 / 2008-01)';
+  var DEF_SUB = '全カタログ版 v5.0 ・ DISC1+DISC2 (11CD081 / 21CD08X / 21CD10Z)';
 
   function push(v, params, title, sub) {
     stack.push({ view: v, params: params || {}, title: title, sub: sub });
@@ -243,7 +251,7 @@ var App = (function() {
     document.getElementById('homeBtn').style.display = stack.length > 1 ? '' : 'none';
     window.scrollTo(0, 0);
     ({ home: renderHome, favs: renderFavs, cars: renderCars, search: renderSearch,
-       variants: renderVariants, groups: renderGroups,
+       catsearch: renderCatSearch, variants: renderVariants, groups: renderGroups,
        blocks: renderBlocks, figure: renderFigure, cart: renderCart })[cur.view](cur.params);
   }
   function modelFor(catalog) {
@@ -440,36 +448,194 @@ var App = (function() {
   }
   function renderSearch(p) {
     searchMode = p.mode || 'partno';
+    srch = null;
     var html = '<div class="box">' +
       '<input id="q" type="text" placeholder="' + (searchMode === 'partno' ? '例: 16011-PC2-005' : '例: フロートバルブ') + '" autocomplete="off">' +
       '<button id="go" onclick="App.doSearch()">検索</button></div>' +
-      '<div id="stat"></div><div id="sres"></div>';
+      '<div id="fbar"></div><div id="stat"></div><div id="sres"></div>';
     view.innerHTML = html;
     var q = document.getElementById('q');
     q.addEventListener('keydown', function(e) { if (e.key === 'Enter') App.doSearch(); });
   }
+  /* one search-result row, shared by global search, facet-filtered
+     search and in-catalog search (v4.9.1) */
+  function searchRowHtml(r) {
+    return '<div class="row" onclick="App.openFigure(\'' + r.catalog + '\',\'' + jsq(r.block) + '\',\'' + jsq(r.figure) + '\',\'' + jsq(r.sub) + '\',\'' + jsq(r.item) + '\')">' +
+      '<div class="big ocrb" style="font-size:16px">' + esc(fmtPn(r.partno)) + '</div>' +
+      (r._subBadge ? '<div><span class="subbadge">代用品 <span class="ocrb">' + esc(fmtSubPn(r._subBadge)) + '</span> でヒット</span></div>' : '') +
+      '<div class="nm">' + esc(r.name || '') + '</div>' +
+      '<div class="meta">' + (r.price != null ? '<span class="price ocrb">¥' + Number(r.price).toLocaleString() + '</span> ・ ' : '') +
+      esc(r.label || r.catalog) + ' ・ 図: ' + esc(figLabel(r.block, r.figure, r.sub)) + ' 見出 ' + esc(r.item) + '</div></div>';
+  }
+  function renderSearchRows(rows, total, filtered) {
+    var stat = document.getElementById('stat'), list = document.getElementById('sres');
+    if (!rows.length) { stat.textContent = '見つかりませんでした'; list.innerHTML = ''; return; }
+    var msg;
+    if (filtered) {
+      msg = '絞り込み中（' + facetLabel() + '）: 全 ' + (total != null && total >= 0 ? total : rows.length) + ' 件' +
+        (rows.length >= 300 ? '（先頭300件まで表示）' : '');
+    } else if (total != null && total >= 0 && total > rows.length) {
+      msg = '全 ' + total + ' 件ヒット（先頭300件まで表示）';
+    } else {
+      msg = rows.length + ' 件ヒット' + (rows.length >= 300 ? '（先頭300件まで表示）' : '');
+    }
+    stat.textContent = msg;
+    var html = '';
+    rows.forEach(function(r) { html += searchRowHtml(r); });
+    list.innerHTML = html;
+  }
   function doSearch() {
     var q = document.getElementById('q').value.trim();
     var stat = document.getElementById('stat'), list = document.getElementById('sres');
+    var fbar = document.getElementById('fbar');
+    if (fbar) fbar.innerHTML = '';
     list.innerHTML = '';
+    srch = null;
     if (!q) { stat.textContent = ''; return; }
     stat.textContent = '検索中…';
     setTimeout(function() {
       var res = call(function() { return EPC.search(searchMode, q); });
       if (res.error) { stat.textContent = 'エラー: ' + res.error; return; }
       var rows = res.rows || [];
-      var dbCount = rows.length;
       if (searchMode === 'partno') rows = mergeSubHits(rows, q);
-      stat.textContent = rows.length ? (rows.length + ' 件ヒット' + (dbCount >= 300 ? '（先頭300件まで表示）' : '')) : '見つかりませんでした';
-      var html = '';
-      rows.forEach(function(r) {
-        html += '<div class="row" onclick="App.openFigure(\'' + r.catalog + '\',\'' + jsq(r.block) + '\',\'' + jsq(r.figure) + '\',\'' + jsq(r.sub) + '\',\'' + jsq(r.item) + '\')">' +
-          '<div class="big" style="font-size:16px">' + esc(fmtPn(r.partno)) + '</div>' +
-          (r._subBadge ? '<div><span class="subbadge">代用品 ' + esc(fmtSubPn(r._subBadge)) + ' でヒット</span></div>' : '') +
-          '<div class="nm">' + esc(r.name || '') + '</div>' +
-          '<div class="meta">' + (r.price != null ? '<span class="price">¥' + Number(r.price).toLocaleString() + '</span> ・ ' : '') +
-          esc(r.label || r.catalog) + ' ・ 図: ' + esc(figLabel(r.block, r.figure, r.sub)) + ' 見出 ' + esc(r.item) + '</div></div>';
+      srch = { q: q, car: '', type: '', facets: null };
+      renderSearchRows(rows, res.total, false);
+      // facet candidates are aggregated over the full match set (no
+      // LIMIT bridge-side); fetch them after the first paint so the
+      // results appear immediately.
+      setTimeout(function() {
+        if (!srch || srch.q !== q) return;
+        var fr = call(function() { return EPC.searchFacets(searchMode, q); });
+        if (fr && !fr.error) { srch.facets = fr; renderFacetBar(); }
+      }, 30);
+    }, 30);
+  }
+  /* ---------- v4.9.1: facet filtering of reverse-lookup results ----------
+     Candidates come from EPC.searchFacets (full-set aggregation).
+     Selecting a car name and/or a type narrows the result list via
+     EPC.searchFiltered (AND of both). While a filter is active the
+     substitute-memo merge is skipped, so filtered rows are exactly the
+     DB rows in the selected catalogs. */
+  var srch = null;   // {q, car, type, facets:{cars:[{name,n}], types:[{type_full,n}]}}
+  function facetLabel() {
+    var parts = [];
+    if (srch && srch.car) parts.push('車名: ' + String(srch.car).trim());
+    if (srch && srch.type) parts.push('型式: ' + srch.type);
+    return parts.join(' / ');
+  }
+  function renderFacetBar() {
+    var fbar = document.getElementById('fbar');
+    if (!fbar || !srch || !srch.facets) return;
+    var cars = srch.facets.cars || [], types = srch.facets.types || [];
+    if (cars.length <= 1 && types.length <= 1) { fbar.innerHTML = ''; return; }
+    var html = '<div class="facetbar"><div class="sect" style="padding:0 0 6px">結果を絞り込む</div>';
+    if (cars.length > 1) {
+      html += '<select id="fcar" onchange="App.facetChange()"><option value="">車名（全車名）</option>';
+      cars.forEach(function(c) {
+        html += '<option value="' + escA(c.name) + '"' + (srch.car === c.name ? ' selected' : '') + '>' +
+          esc(String(c.name).trim()) + '（' + c.n + '件）</option>';
       });
+      html += '</select>';
+    }
+    if (types.length > 1) {
+      html += '<select id="ftype" onchange="App.facetChange()"><option value="">型式（全型式）</option>';
+      types.forEach(function(t) {
+        html += '<option value="' + escA(t.type_full) + '"' + (srch.type === t.type_full ? ' selected' : '') + '>' +
+          esc(t.type_full) + '（' + t.n + '件）</option>';
+      });
+      html += '</select>';
+    }
+    if (srch.car || srch.type) html += '<button class="mini" onclick="App.facetClear()">絞り込みを解除</button>';
+    html += '</div>';
+    fbar.innerHTML = html;
+  }
+  function facetChange() {
+    if (!srch) return;
+    var fc = document.getElementById('fcar'), ft = document.getElementById('ftype');
+    srch.car = fc ? fc.value : '';
+    srch.type = ft ? ft.value : '';
+    if (!srch.car && !srch.type) { doSearch(); return; }
+    var stat = document.getElementById('stat');
+    stat.textContent = '絞り込み中…';
+    var q = srch.q, car = srch.car, type = srch.type;
+    setTimeout(function() {
+      var res = call(function() { return EPC.searchFiltered(searchMode, q, car, type); });
+      if (res.error) { stat.textContent = 'エラー: ' + res.error; return; }
+      renderSearchRows(res.rows || [], res.total, true);
+      renderFacetBar();
+    }, 30);
+  }
+  function facetClear() {
+    if (!srch) return;
+    srch.car = ''; srch.type = '';
+    doSearch();
+  }
+
+  /* ---------- v4.9.1: in-catalog search (from the car-selection flow) ----------
+     Entry boxes sit on the variants screen (the car's screen) and on
+     the groups screen (after a model is chosen). Both push the
+     'catsearch' view, which searches only within that catalog via
+     EPC.searchInCatalog and jumps to figures exactly like global
+     search. Part-number mode also merges substitute-memo hits,
+     restricted to rows of this catalog. */
+  function catSearchBoxHtml(catalog, name, typeFull) {
+    return '<div class="box"><div class="sect" style="padding:0 0 6px">この車種で部品検索</div>' +
+      '<input id="csq" type="text" placeholder="部品番号 または 品名（例: 16011 / フロート）" autocomplete="off">' +
+      '<button id="go" onclick="App.openCatSearch(\'' + catalog + '\',\'' + jsq(name || '') + '\',\'' + jsq(typeFull || '') + '\')">検索</button></div>';
+  }
+  function openCatSearch(catalog, name, typeFull) {
+    var qEl = document.getElementById('csq');
+    var q = qEl ? qEl.value.trim() : '';
+    push('catsearch', { catalog: catalog, name: name || '', typeFull: typeFull || '', q: q },
+         'カタログ内検索', ((name || '') ? (name + ' ' + typeFull + ' ・ ') : '') + 'カタログ: ' + catalog);
+  }
+  var csMode = 'partno';
+  function renderCatSearch(p) {
+    csMode = 'partno';
+    var html = '<div class="box">' +
+      '<div class="tabs">' +
+      '<button id="cstab-p" class="on" onclick="App.csSetMode(\'partno\')">部品番号</button>' +
+      '<button id="cstab-n" onclick="App.csSetMode(\'name\')">品名</button></div>' +
+      '<input id="cq" type="text" placeholder="例: 16011-PC2-005" autocomplete="off" value="' + escA(p.q || '') + '">' +
+      '<button id="go" onclick="App.doCatSearch()">この車種で検索</button></div>' +
+      '<div id="stat"></div><div id="sres"></div>';
+    view.innerHTML = html;
+    var q = document.getElementById('cq');
+    q.addEventListener('keydown', function(e) { if (e.key === 'Enter') App.doCatSearch(); });
+    if (p.q) doCatSearch();
+  }
+  function csSetMode(m) {
+    csMode = m;
+    var bp = document.getElementById('cstab-p'), bn = document.getElementById('cstab-n');
+    if (bp) bp.className = m === 'partno' ? 'on' : '';
+    if (bn) bn.className = m === 'name' ? 'on' : '';
+    var q = document.getElementById('cq');
+    if (q) q.placeholder = m === 'partno' ? '例: 16011-PC2-005' : '例: フロートバルブ';
+  }
+  function doCatSearch() {
+    var cur = stack[stack.length - 1];
+    var catalog = cur.params.catalog;
+    var q = document.getElementById('cq').value.trim();
+    var stat = document.getElementById('stat'), list = document.getElementById('sres');
+    list.innerHTML = '';
+    if (!q) { stat.textContent = ''; return; }
+    stat.textContent = '検索中…';
+    setTimeout(function() {
+      var res = call(function() { return EPC.searchInCatalog(catalog, csMode, q); });
+      if (res.error) { stat.textContent = 'エラー: ' + res.error; return; }
+      var rows = res.rows || [];
+      var dbRows = rows.length;
+      if (csMode === 'partno') {
+        rows = mergeSubHits(rows, q).filter(function(r) { return r.catalog === catalog; });
+      }
+      if (!rows.length) { stat.textContent = 'この車種では見つかりませんでした'; return; }
+      var total = res.total;
+      var msg = rows.length + ' 件ヒット';
+      if (total != null && total >= 0 && dbRows >= 300 && total > dbRows) msg = '全 ' + total + ' 件ヒット（先頭300件まで表示）';
+      else if (rows.length >= 300) msg += '（先頭300件まで表示）';
+      stat.textContent = msg;
+      var html = '';
+      rows.forEach(function(r) { html += searchRowHtml(r); });
       list.innerHTML = html;
     }, 30);
   }
@@ -527,6 +693,7 @@ var App = (function() {
     var res = call(function() { return EPC.variants(p.catalog); });
     varRows = res.rows || [];
     var html = packBannerHtml(p.catalog, packState(p.catalog));
+    html += catSearchBoxHtml(p.catalog, p.name, p.typeFull);
     html += '<div class="sect">仕様を選ぶと、その車種に適合する部品に絞り込めます（星アイコンでお気に入り登録）</div>';
     var f0 = { catalog: p.catalog, idsCsv: '', label: p.name + ' ' + p.typeFull + '（モデル未選択）' };
     html += '<div class="row" onclick="App.chooseModel(\'' + p.catalog + '\',null)">' +
@@ -581,6 +748,7 @@ var App = (function() {
     var m = modelFor(p.catalog);
     if (m) html += '<div class="box" style="background:#fff3f3">選択中の車種: <b>' + esc(m.label) + '</b>' +
       '<div class="meta">図ページで適合する部品だけに絞り込めます</div></div>';
+    html += catSearchBoxHtml(p.catalog, '', '');
     (res.rows || []).forEach(function(g) {
       html += '<div class="row" onclick="App.openBlocks(\'' + p.catalog + '\',' + g.seq + ',\'' + jsq(g.name) + '\')">' +
         '<span class="big">' + esc(g.name) + '</span>' +
@@ -695,9 +863,9 @@ var App = (function() {
       var nSub = (allSubs[r.partno] || []).length;
       html += '<div class="row part" id="prow-' + r.id + '" data-item="' + esc(r.item) + '" onclick="App.pickPart(' + r.id + ')">' +
         '<div class="item">' + esc(r.item) + '</div><div class="body">' +
-        '<div class="big" style="font-size:15.5px">' + esc(fmtPn(r.partno)) + '</div>' +
+        '<div class="big ocrb" style="font-size:15.5px">' + esc(fmtPn(r.partno)) + '</div>' +
         '<div class="nm" style="font-size:14px">' + esc(r.name || '') + '</div>' +
-        '<div class="meta">' + (r.price != null ? '<span class="price">¥' + Number(r.price).toLocaleString() + '</span>' : '') +
+        '<div class="meta">' + (r.price != null ? '<span class="price ocrb">¥' + Number(r.price).toLocaleString() + '</span>' : '') +
         (r._qty != null ? ' ・ 個数 ' + r._qty : '') + '</div>' +
         '<div class="fitline">' +
         '<span class="fittgl" id="fittgl-' + r.id + '" onclick="App.toggleFit(event,' + r.id + ')">適合 ▸</span>' +
@@ -746,8 +914,8 @@ var App = (function() {
     for (i = 0; i < spots.length; i++) spots[i].classList.toggle('hl', spots[i].getAttribute('data-item') === part.item);
     var bar = document.getElementById('addbar');
     bar.style.display = 'block';
-    bar.innerHTML = '<div class="ab-t">選択中: <b>' + esc(fmtPn(part.partno)) + '</b> ' + esc(part.name || '') +
-      (part.price != null ? ' ・ <span class="price">' + yen(part.price) + '</span>' : '') +
+    bar.innerHTML = '<div class="ab-t">選択中: <b class="ocrb">' + esc(fmtPn(part.partno)) + '</b> ' + esc(part.name || '') +
+      (part.price != null ? ' ・ <span class="price ocrb">' + yen(part.price) + '</span>' : '') +
       (part._qty != null ? ' ・ 個数 ' + part._qty : '') + '</div>' +
       '<button id="addBtn" onclick="App.addToCart()">買い物リストに追加</button>';
     if (scrollToRow) {
@@ -962,10 +1130,10 @@ var App = (function() {
         if (tgt) {
           html += '<div class="subpn"><a href="javascript:void(0)" onclick="App.jumpSub(event,\'' +
             tgt.catalog + '\',\'' + jsq(tgt.block) + '\',\'' + jsq(tgt.figure) + '\',\'' +
-            jsq(tgt.sub) + '\',\'' + jsq(tgt.item) + '\')">' + esc(disp) + '</a>' +
+            jsq(tgt.sub) + '\',\'' + jsq(tgt.item) + '\')"><span class="ocrb">' + esc(disp) + '</span></a>' +
             ' <span class="meta">代用品（タップで図へ）</span></div>';
         } else {
-          html += '<div class="subpn">' + esc(disp) + ' <span class="meta">代用品</span></div>';
+          html += '<div class="subpn"><span class="ocrb">' + esc(disp) + '</span> <span class="meta">代用品</span></div>';
         }
       }
       if (m.text) html += '<div>' + esc(m.text).replace(/\n/g, '<br>') + '</div>';
@@ -1051,16 +1219,16 @@ var App = (function() {
       var line = (it.price != null ? it.price : 0) * it.qty;
       total += line;
       html += '<div class="row cartrow"><div class="body">' +
-        '<div class="big" style="font-size:15.5px">' + esc(fmtPn(it.partno)) + '</div>' +
+        '<div class="big ocrb" style="font-size:15.5px">' + esc(fmtPn(it.partno)) + '</div>' +
         '<div class="nm" style="font-size:14px">' + esc(it.name) + '</div>' +
-        '<div class="meta">' + esc(it.src) + ' ・ 単価 ' + (it.price != null ? yen(it.price) : '―') +
-        ' ・ 小計 <span class="price">' + yen(line) + '</span></div></div>' +
+        '<div class="meta">' + esc(it.src) + ' ・ 単価 ' + (it.price != null ? '<span class="ocrb">' + yen(it.price) + '</span>' : '―') +
+        ' ・ 小計 <span class="price ocrb">' + yen(line) + '</span></div></div>' +
         '<div class="qtyctl"><button onclick="App.cartQty(' + idx + ',-1)">−</button>' +
         '<span class="qv">' + it.qty + '</span>' +
         '<button onclick="App.cartQty(' + idx + ',1)">＋</button></div>' +
         '<button class="del" onclick="App.cartDel(' + idx + ')">削除</button></div>';
     });
-    html += '<div class="total">合計 ' + yen(total) + '</div>';
+    html += '<div class="total">合計 <span class="ocrb">' + yen(total) + '</span></div>';
     html += '<div class="box"><button class="mini" onclick="App.cartClear()">リストを空にする</button></div>';
     view.innerHTML = html;
   }
@@ -1085,7 +1253,9 @@ var App = (function() {
   refreshSubs();         // warm the in-memory subs cache from the user DB
   push('home', {}, null, null);
   return { back: back, goHome: goHome, openFavs: openFavs, openCars: openCars,
-           openSearch: openSearch, doSearch: doSearch, openVariants: openVariants,
+           openSearch: openSearch, doSearch: doSearch, facetChange: facetChange, facetClear: facetClear,
+           openCatSearch: openCatSearch, doCatSearch: doCatSearch, csSetMode: csSetMode,
+           openVariants: openVariants,
            chooseModel: chooseModel, clearModel: clearModel,
            openGroups: openGroups, openBlocks: openBlocks, openFigure: openFigure,
            pickPart: pickPart, pickItem: pickItem, addToCart: addToCart, toggleFit: toggleFit,

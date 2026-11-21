@@ -5,9 +5,12 @@
     python3 convert_epc.py --iso DISC1.ISO --iso2 DISC2.ISO --out ./out
     python3 convert_epc.py --iso HONDA_EPC.ISO --out ./out \
         --ipad-catalogs 11SA702,11SC701
+    python3 convert_epc.py --iso 11CD081.ISO --iso2 21CD10Z.ISO \
+        --iso2 21CD08X.ISO --master-disc 1 --db-name epc_v5.db \
+        --out ./out5
 
 Outputs (into --out):
-    epc_v4.db          Android app database
+    epc_v4.db          Android app database (--db-name to change)
     packs/<CAT>.zip    per-catalog figure image packs
     epc-*.html         single-file HTML viewer (only with --ipad-catalogs)
 
@@ -61,6 +64,15 @@ def main():
     ap.add_argument('--iso2', action='append', default=[],
                     help='additional ISO image (e.g. DISC2); same as '
                          'giving --iso again')
+    ap.add_argument('--master-disc', type=int, default=None,
+                    help='index (0-based, in the combined --iso/--iso2 '
+                         'order) of the disc whose root master files '
+                         '(KSRBHMH.CD, SYSBMST.CD) are used; catalogs '
+                         'still follow first-disc-wins in argument '
+                         'order. Default: first disc that has them.')
+    ap.add_argument('--db-name', default='epc_v4.db',
+                    help='file name of the app database written by the '
+                         'export stage (default: epc_v4.db)')
     ap.add_argument('--out', required=True, help='output directory')
     ap.add_argument('--work', default=None,
                     help='work directory (default: <out>/work)')
@@ -104,6 +116,11 @@ def main():
     if 'ipad' in run and not args.ipad_catalogs:
         ap.error('--stage ipad requires --ipad-catalogs')
 
+    if args.master_disc is not None \
+            and not 0 <= args.master_disc < len(iso_paths):
+        ap.error(f'--master-disc {args.master_disc} out of range for '
+                 f'{len(iso_paths)} ISO(s)')
+
     discs = None
     if any(s in DISC_STAGES for s in run):
         pending = [s for s in run if s in DISC_STAGES
@@ -111,7 +128,7 @@ def main():
                         or not os.path.exists(
                             os.path.join(stamp_dir, s + '.json')))]
         if pending:
-            discs = DiscSet(iso_paths)
+            discs = DiscSet(iso_paths, master_disc=args.master_disc)
 
     ctx = stages.Ctx(args, discs, log)
     t_all = time.time()
@@ -124,7 +141,8 @@ def main():
                     f'use --force or --stage to redo)')
                 continue
             if name in DISC_STAGES and discs is None:
-                discs = ctx.discs = DiscSet(iso_paths)
+                discs = ctx.discs = DiscSet(
+                    iso_paths, master_disc=args.master_disc)
             log(f'stage {name}: start')
             t0 = time.time()
             summary = STAGE_FUNCS[name](ctx)
@@ -137,7 +155,7 @@ def main():
         if discs is not None:
             discs.close()
     log(f'all done in {time.time() - t_all:.0f}s')
-    log(f'outputs in {args.out}: epc_v4.db'
+    log(f'outputs in {args.out}: {args.db_name}'
         + (', packs/' if 'packs' in run else '')
         + (' (+ HTML viewer)' if 'ipad' in run else ''))
 

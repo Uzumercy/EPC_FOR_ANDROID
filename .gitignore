@@ -29,3 +29,17 @@ android/debug.keystore
 out/
 work/
 epc_v4.db
+
+# v5.0 で増えた生成物・データ — 変換データはコミットしない
+epc_v5.db
+v5out/
+cd2/*.iso
+cd2/work/
+nsx-figures/
+nsx-figures.zip
+
+# 本家プログラムのバイナリ・抽出アイコン — 再配布しない（v5.0 push準備で追加）
+icons_work/*.EXE
+icons_work/*.DL_
+icons_out/
+epc-program-icons.zip

@@ -10,8 +10,13 @@ known fixes baked in from the start:
 * All text is decoded as cp932.  Python's 'shift_jis' codec maps
   halfwidth katakana bytes (0xA1-0xDF) to U+FFFD and garbles grade
   names (see rebuild_models.py).
-* PLMST applicability tails are parsed with the confirmed grammar whose
-  group chain starts at offset ``7 + tail[7]`` (see prep_v4.py).
+* PLMST applicability tails are parsed with the generalized grammar
+  (fixed 3-byte group field, codes always at group+9) whose group chain
+  starts at offset ``7 + tail[7]`` (see analysis/c_tail_generic.py).
+  It parses every record on DISC1 (609,952), 21CD08X (604,512) and
+  21CD10Z (576,714) with no failures, and its interpretation agrees
+  with the legacy variable-length-remark grammar on every record the
+  legacy grammar could parse.
 
 See EPC_FORMAT_REPORT.md for the full format documentation.
 """
@@ -73,12 +78,21 @@ _QTY_FIELD = re.compile(rb'^([ ]{0,2}\d{1,3}|[ ]{2}N)$')
 def parse_chain(tail, start):
     """Parse one applicability group chain starting at ``start``.
 
-    Grammar (confirmed against 609,705 of 609,952 records): a sequence of
-    groups; each group is [u16LE total length][4 bytes unused] then either
-    a quantity field (3 ASCII bytes, e.g. '  1' or '  N') followed by
-    u16LE model-ID codes (type A), or a '(...)' remark string followed by
-    the codes (type B).  Returns [(qty_or_None, [codes...]), ...] or
-    None if the chain does not consume the tail exactly.
+    Generalized grammar (analysis/c_tail_generic.py, verified 100% on
+    DISC1 + both DISC2 editions): a sequence of groups; each group is
+    [u16LE total length][4 bytes unused][3-byte field][u16LE model-ID
+    codes].  The field is FIXED at 3 bytes and the codes always start
+    at group+9 — the legacy grammar let a type-B remark string run to
+    its ')' and start the codes later, which fails on 2-digit note
+    numbers whose remark overflows the 3-byte field (247 records on
+    DISC1, 379 on 21CD08X, 359 on 21CD10Z).  The field classifies as:
+    type A — a quantity field matching _QTY_FIELD ('  1', '  N', ...),
+    reported as (qty, codes); type B — a '(...)' note remark such as
+    '(1)', and type X — any other field ('   ', 'Y01', ...); both are
+    reported as (None, codes).  Wherever the legacy grammar succeeded
+    the two interpretations are identical (checked exhaustively on
+    DISC1).  Returns [(qty_or_None, [codes...]), ...] or None if the
+    chain does not consume the tail exactly.
     """
     groups = []
     i = start
@@ -86,28 +100,17 @@ def parse_chain(tail, start):
         if i + 9 > len(tail):
             return None
         glen = struct.unpack('<H', tail[i:i + 2])[0]
-        if glen < 9 or i + glen > len(tail):
+        if glen < 9 or i + glen > len(tail) or (glen - 9) % 2:
             return None
         f3 = tail[i + 6:i + 9]
-        if b')' in f3 or f3[:1] == b'(':
-            end = tail.find(b')', i + 6, i + glen)
-            if end < 0:
-                return None
-            cs = end + 1
-            if (glen - (cs - i)) % 2:
-                return None
-            codes = [struct.unpack('<H', tail[j:j + 2])[0]
-                     for j in range(cs, i + glen - 1, 2)]
-            groups.append((None, codes))
-        elif _QTY_FIELD.match(f3):
-            qty = int(f3.decode('ascii').strip()) if f3.strip().isdigit() else None
-            if (glen - 9) % 2:
-                return None
-            codes = [struct.unpack('<H', tail[j:j + 2])[0]
-                     for j in range(i + 9, i + glen - 1, 2)]
+        codes = [struct.unpack('<H', tail[j:j + 2])[0]
+                 for j in range(i + 9, i + glen - 1, 2)]
+        if _QTY_FIELD.match(f3):
+            qty = int(f3.decode('ascii').strip()) \
+                if f3.strip().isdigit() else None
             groups.append((qty, codes))
         else:
-            return None
+            groups.append((None, codes))
         i += glen
     return groups if i == len(tail) else None
 
@@ -115,11 +118,12 @@ def parse_chain(tail, start):
 def parse_tail(tail):
     """Parse a PLMST applicability tail.
 
-    The confirmed grammar starts the group chain at ``7 + tail[7]``;
+    The generalized grammar starts the group chain at ``7 + tail[7]``;
     a few historical offsets are tried as fallbacks, in the same order
     the reference build (prep_v4.py) used.  Returns the group list, or
-    None when no candidate parses (247 of 609,952 records on DISC1 —
-    those parts simply carry no applicability data).
+    None when no candidate parses (with the generalized grammar this
+    does not occur on any of the three known discs — every record
+    parses).
     """
     if not tail or len(tail) < 11:
         return None

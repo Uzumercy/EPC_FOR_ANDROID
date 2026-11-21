@@ -34,7 +34,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
-    private static final int DB_VERSION = 5;
+    private static final int DB_VERSION = 6;
     private static final int REQ_PICK_PACK = 1001;
     private WebView webView;
     private SQLiteDatabase db;
@@ -162,7 +162,7 @@ public class MainActivity extends Activity {
      *  - Single self-contained SQLite file (files/userdata.db). No absolute
      *    paths or device-specific state inside the data tables, so copying
      *    this one file to another device carries all user data with it.
-     *  - Fully separate from the bundled read-only base DB (epc_v4.db):
+     *  - Fully separate from the bundled read-only base DB (epc_v5.db):
      *    prepareDb()/DB_VERSION re-copies never touch it, so user data
      *    survives base-DB replacements.
      *  - subs is a plain self-describing schema: the original part number,
@@ -181,10 +181,10 @@ public class MainActivity extends Activity {
     }
 
     private File prepareDb() throws Exception {
-        File out = new File(getFilesDir(), "epc_v4.db");
+        File out = new File(getFilesDir(), "epc_v5.db");
         SharedPreferences p = getSharedPreferences("epc", Context.MODE_PRIVATE);
         if (out.exists() && p.getInt("dbver", 0) == DB_VERSION) return out;
-        InputStream in = getAssets().open("epc_v4.db");
+        InputStream in = getAssets().open("epc_v5.db");
         OutputStream os = new FileOutputStream(out);
         byte[] buf = new byte[65536];
         int n;
@@ -438,26 +438,116 @@ public class MainActivity extends Activity {
             return result.toString();
         }
 
+        /** Shared search core (v4.9). catalog / carName / typeFull empty
+         *  string = no filter of that kind. Car-name and type filters are
+         *  catalog/model-granular: a part row matches when its catalog has
+         *  at least one model with that name / type_full (EXISTS against
+         *  models); per-row fitment stays with the gjson check on the
+         *  figure page. Returns rows (LIMIT 300, as before) plus "total",
+         *  the full match count with no LIMIT, so the UI can tell the
+         *  user when only the first 300 are shown. */
+        private JSONObject runSearch(String mode, String query, String catalog,
+                                     String carName, String typeFull) throws Exception {
+            JSONObject result = new JSONObject();
+            String cols =
+                "SELECT p.partno, p.name_norm AS name, p.price, b.catalog, b.block, b.figure, b.sub, p.item, " +
+                "IFNULL(c.label, b.catalog) AS label FROM parts p " +
+                "JOIN blocks b ON b.blkid = p.blkid " +
+                "LEFT JOIN catalogs c ON c.catalog = b.catalog ";
+            String where;
+            java.util.List<String> args = new java.util.ArrayList<>();
+            if ("partno".equals(mode)) {
+                where = "WHERE p.partno LIKE '%' || ? || '%'";
+                args.add(query.toUpperCase().replaceAll("[\\s\\-]", ""));
+            } else {
+                where = "WHERE p.name_norm LIKE '%' || ? || '%'";
+                args.add(Normalizer.normalize(query, Normalizer.Form.NFKC));
+            }
+            if (catalog != null && !catalog.isEmpty()) {
+                where += " AND b.catalog = ?";
+                args.add(catalog);
+            }
+            if (carName != null && !carName.isEmpty()) {
+                where += " AND EXISTS (SELECT 1 FROM models m WHERE m.catalog = b.catalog AND m.name = ?)";
+                args.add(carName);
+            }
+            if (typeFull != null && !typeFull.isEmpty()) {
+                where += " AND EXISTS (SELECT 1 FROM models m WHERE m.catalog = b.catalog AND m.type_full = ?)";
+                args.add(typeFull);
+            }
+            String[] a = args.toArray(new String[0]);
+            JSONArray rows = queryJson(cols + where + " ORDER BY p.partno LIMIT 300", a);
+            long total = -1;
+            Cursor cur = db.rawQuery(
+                "SELECT COUNT(*) FROM parts p JOIN blocks b ON b.blkid = p.blkid " + where, a);
+            if (cur.moveToFirst()) total = cur.getLong(0);
+            cur.close();
+            result.put("rows", rows);
+            result.put("count", rows.length());
+            result.put("total", total);
+            return result;
+        }
+
+        private String searchError(Exception e) {
+            JSONObject result = new JSONObject();
+            try { result.put("error", String.valueOf(e.getMessage())); } catch (Exception ignored) {}
+            return result.toString();
+        }
+
         @JavascriptInterface
         public String search(String mode, String query) {
+            try {
+                if (db == null) { JSONObject r = new JSONObject(); r.put("error", "DBを開けませんでした"); return r.toString(); }
+                return runSearch(mode, query, "", "", "").toString();
+            } catch (Exception e) { return searchError(e); }
+        }
+
+        /** v4.9: global search narrowed by car name and/or type (AND). */
+        @JavascriptInterface
+        public String searchFiltered(String mode, String query, String carName, String typeFull) {
+            try {
+                if (db == null) { JSONObject r = new JSONObject(); r.put("error", "DBを開けませんでした"); return r.toString(); }
+                return runSearch(mode, query, "", carName, typeFull).toString();
+            } catch (Exception e) { return searchError(e); }
+        }
+
+        /** v4.9: search within a single catalog (from the car-selection flow). */
+        @JavascriptInterface
+        public String searchInCatalog(String catalog, String mode, String query) {
+            try {
+                if (db == null) { JSONObject r = new JSONObject(); r.put("error", "DBを開けませんでした"); return r.toString(); }
+                return runSearch(mode, query, catalog, "", "").toString();
+            } catch (Exception e) { return searchError(e); }
+        }
+
+        /** v4.9: facet candidates for a search term, aggregated over the
+         *  FULL match set (deliberately no LIMIT, so candidates never go
+         *  missing behind the 300-row result cap): distinct car names and
+         *  type_fulls of the catalogs the matched parts belong to, each
+         *  with its matched part-row count. The inner GROUP BY counts a
+         *  part row once per distinct name/type within its catalog, even
+         *  when the catalog holds several model rows with that name. */
+        @JavascriptInterface
+        public String searchFacets(String mode, String query) {
             JSONObject result = new JSONObject();
             try {
                 if (db == null) { result.put("error", "DBを開けませんでした"); return result.toString(); }
-                String cols =
-                    "SELECT p.partno, p.name_norm AS name, p.price, b.catalog, b.block, b.figure, b.sub, p.item, " +
-                    "IFNULL(c.label, b.catalog) AS label FROM parts p " +
-                    "JOIN blocks b ON b.blkid = p.blkid " +
-                    "LEFT JOIN catalogs c ON c.catalog = b.catalog ";
-                JSONArray rows;
+                String cond, q;
                 if ("partno".equals(mode)) {
-                    String q = query.toUpperCase().replaceAll("[\\s\\-]", "");
-                    rows = queryJson(cols + "WHERE p.partno LIKE '%' || ? || '%' ORDER BY p.partno LIMIT 300", q);
+                    cond = "p.partno LIKE '%' || ? || '%'";
+                    q = query.toUpperCase().replaceAll("[\\s\\-]", "");
                 } else {
-                    String q = Normalizer.normalize(query, Normalizer.Form.NFKC);
-                    rows = queryJson(cols + "WHERE p.name_norm LIKE '%' || ? || '%' ORDER BY p.partno LIMIT 300", q);
+                    cond = "p.name_norm LIKE '%' || ? || '%'";
+                    q = Normalizer.normalize(query, Normalizer.Form.NFKC);
                 }
-                result.put("rows", rows);
-                result.put("count", rows.length());
+                String base = "FROM parts p JOIN blocks b ON b.blkid = p.blkid " +
+                    "JOIN models m ON m.catalog = b.catalog WHERE " + cond;
+                result.put("cars", queryJson(
+                    "SELECT name, COUNT(*) AS n FROM (SELECT m.name AS name, p.id AS pid " +
+                    base + " GROUP BY m.name, p.id) GROUP BY name ORDER BY n DESC, name", q));
+                result.put("types", queryJson(
+                    "SELECT type_full, COUNT(*) AS n FROM (SELECT m.type_full AS type_full, p.id AS pid " +
+                    base + " GROUP BY m.type_full, p.id) GROUP BY type_full ORDER BY n DESC, type_full", q));
             } catch (Exception e) {
                 try { result.put("error", String.valueOf(e.getMessage())); } catch (Exception ignored) {}
             }

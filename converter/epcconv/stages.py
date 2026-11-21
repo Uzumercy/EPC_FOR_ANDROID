@@ -71,7 +71,8 @@ class Ctx:
         self.extracted_dir = os.path.join(args.work, 'extracted')
         self.figures_dir = os.path.join(args.work, 'figures')
         self.index_db = os.path.join(args.work, 'index.sqlite')
-        self.app_db = os.path.join(args.out, 'epc_v4.db')
+        self.app_db = os.path.join(args.out,
+                                   getattr(args, 'db_name', 'epc_v4.db'))
         self.packs_dir = os.path.join(args.out, 'packs')
         self.ipad_catalogs = args.ipad_catalogs
         self.html_path = args.html or os.path.join(
@@ -288,7 +289,7 @@ def stage_figures(ctx):
     con = _connect_index(ctx, create=True)
     con.execute('DELETE FROM figures')
     con.execute('DELETE FROM hotspots')
-    n_ok = n_fail = n_skip = 0
+    n_ok = n_fail = n_skip = n_reuse = 0
     fails = []
     try:
         for catalog, subdir, name, data in ctx.discs.walk_figure_files():
@@ -313,14 +314,29 @@ def stage_figures(ctx):
                    else f'{catalog}/{name}.png')
             outpath = os.path.join(ctx.figures_dir, rel)
             os.makedirs(os.path.dirname(outpath), exist_ok=True)
-            try:
-                im = Image.open(io.BytesIO(parsers.make_tiff(stream, w, h)))
-                im.load()
-                im.save(outpath, optimize=True)
-            except Exception as ex:
-                n_fail += 1
-                fails.append(f'{rel}: {ex!r}'[:120])
-                continue
+            # A PNG already sitting in the figures dir (e.g. seeded from
+            # a previous verified decode of the same figure file) is
+            # reused when it loads cleanly and its size matches the
+            # figure header; anything else is decoded fresh below.
+            reused = False
+            if os.path.exists(outpath):
+                try:
+                    with Image.open(outpath) as pim:
+                        pim.load()
+                        reused = pim.size == (w, h)
+                except Exception:
+                    reused = False
+            if reused:
+                n_reuse += 1
+            else:
+                try:
+                    im = Image.open(io.BytesIO(parsers.make_tiff(stream, w, h)))
+                    im.load()
+                    im.save(outpath, optimize=True)
+                except Exception as ex:
+                    n_fail += 1
+                    fails.append(f'{rel}: {ex!r}'[:120])
+                    continue
             con.execute('INSERT INTO figures VALUES (?,?,?,?,?,?,?)',
                         (catalog, subdir, name, w, h, rel, len(spots)))
             for item, x1, y1, x2, y2 in spots:
@@ -333,13 +349,15 @@ def stage_figures(ctx):
     finally:
         con.commit()
         con.close()
-    ctx.log(f'figures: ok={n_ok} fail={n_fail} skip={n_skip}')
+    ctx.log(f'figures: ok={n_ok} reused={n_reuse} fail={n_fail} '
+            f'skip={n_skip}')
     for f in fails[:20]:
         ctx.log(f'figures: DECODEFAIL {f}')
     if n_fail:
         raise SystemExit(f'figure decode failures: {n_fail} '
                          '(the reference conversion has 0)')
-    return {'figures': n_ok, 'decode_fail': n_fail, 'skipped_files': n_skip}
+    return {'figures': n_ok, 'reused_png': n_reuse, 'decode_fail': n_fail,
+            'skipped_files': n_skip}
 
 
 # ------------------------------------------------------------- figuremap --

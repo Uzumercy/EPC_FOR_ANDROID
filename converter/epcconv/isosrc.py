@@ -3,9 +3,25 @@
 The EPC data ships on CD-ROM.  DISC1 (11CD081, 2008-01) carries 82
 catalogs; DISC2 (21CD...) carries the remaining catalogs of the model
 master.  A conversion may use one or more ISO images: the first disc
-wins for any file present on several discs, later discs only add
+wins for any catalog present on several discs, later discs only add
 catalogs/files that are missing.  The Windows program on the FD
 installer is not needed — every data file lives on the CDs.
+
+Catalog priority is therefore simply the ISO argument order.  The
+3-disc build (DISC1 11CD081 + 21CD10Z + 21CD08X, in that order) gives:
+DISC1's 82 catalogs from DISC1, the 81 catalogs shared by both DISC2
+editions from the newer 21CD10Z, the 19 catalogs unique to 21CD08X
+from 21CD08X and the 16 unique to 21CD10Z from 21CD10Z — 198 catalogs
+in total.
+
+Root master files (KSRBHMH.CD, SYSBMST.CD) are the exception: they
+are global, every disc carries its own edition, and the editions are
+monotonic supersets (model master: 190 -> 193 -> 209 catalogs).  Pass
+``master_disc`` (an index into the ISO list) to take the masters from
+that disc instead of the first one — the 3-disc build uses the
+21CD10Z masters (index 1 in the order above) so that the model table
+and the equipment master match the newest data.  Without
+``master_disc`` the historical first-disc-wins rule applies.
 """
 import io
 import os
@@ -23,10 +39,19 @@ def _clean(fn):
 
 
 class DiscSet:
-    """An ordered set of opened ISO images (index 0 = primary disc)."""
+    """An ordered set of opened ISO images (index 0 = primary disc).
 
-    def __init__(self, iso_paths):
+    ``master_disc``: optional index of the disc that provides the root
+    master files (see module docstring).  Falls back to the first disc
+    carrying a file when the master disc does not have it.
+    """
+
+    def __init__(self, iso_paths, master_disc=None):
         self.paths = [os.path.abspath(p) for p in iso_paths]
+        if master_disc is not None and not 0 <= master_disc < len(self.paths):
+            raise ValueError(f'master_disc {master_disc} out of range '
+                             f'for {len(self.paths)} ISO(s)')
+        self.master_disc = master_disc
         self.isos = []
         for p in self.paths:
             iso = pycdlib.PyCdlib()
@@ -47,15 +72,16 @@ class DiscSet:
         self._catalog_owner = {}
         self._catalog_files = {}
         self._root_files = {}
+        root_found = {}                # name -> {disc index: iso path}
         for di, iso in enumerate(self.isos):
             for dirpath, dirnames, filenames in iso.walk(iso_path='/'):
                 parts = [p for p in dirpath.split('/') if p]
                 names = {_clean(f): f for f in filenames}
                 if len(parts) == 0:
                     for want in ROOT_FILES:
-                        if want in names and want not in self._root_files:
-                            self._root_files[want] = (
-                                di, dirpath.rstrip('/') + '/' + names[want])
+                        if want in names:
+                            root_found.setdefault(want, {})[di] = \
+                                dirpath.rstrip('/') + '/' + names[want]
                 elif len(parts) == 1:
                     cat = parts[0]
                     if cat.upper().startswith('PROGRAM'):
@@ -69,6 +95,15 @@ class DiscSet:
                             if want in names:
                                 self._catalog_files[(cat, want)] = \
                                     dirpath.rstrip('/') + '/' + names[want]
+        # root masters: the designated master disc wins when it carries
+        # the file; otherwise the first disc that has it (legacy rule)
+        for want, by_disc in root_found.items():
+            if self.master_disc is not None \
+                    and self.master_disc in by_disc:
+                di = self.master_disc
+            else:
+                di = min(by_disc)
+            self._root_files[want] = (di, by_disc[di])
 
     # ------------------------------------------------------------ reads --
     def read_iso_file(self, disc_index, iso_path):
@@ -95,7 +130,8 @@ class DiscSet:
         return self.read_iso_file(self._catalog_owner[catalog], ip)
 
     def root_file(self, name):
-        """Bytes of a root master file (first disc that carries it).
+        """Bytes of a root master file (from the master disc when one
+        is designated and carries it, else the first disc that has it).
         Returns None if no disc has it."""
         self._build_index()
         hit = self._root_files.get(name)

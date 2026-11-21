@@ -3,12 +3,12 @@ set -e
 cd "$(dirname "$0")"
 BT=~/android-sdk/build-tools/android-14
 AJ=~/android-sdk/platforms/android-34/android.jar
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export JAVA_HOME=~/jdk17
 rm -rf classes dex app-unsigned.apk app-aligned.apk epc-search-v4.apk
 mkdir -p classes dex
 $JAVA_HOME/bin/javac -encoding UTF-8 -source 8 -target 8 -cp "$AJ" -d classes $(find src -name '*.java')
 $BT/d8 --lib "$AJ" --output dex $(find classes -name '*.class')
-$BT/aapt package -f -M AndroidManifest.xml -A assets -I "$AJ" -F app-unsigned.apk
+$BT/aapt package -f -M AndroidManifest.xml -S res -A assets -I "$AJ" -F app-unsigned.apk
 cp dex/classes.dex .
 $BT/aapt add app-unsigned.apk classes.dex > /dev/null
 rm classes.dex

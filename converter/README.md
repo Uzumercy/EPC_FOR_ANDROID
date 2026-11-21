@@ -43,6 +43,12 @@ python3 convert_epc.py --iso /path/to/HONDA_EPC.ISO --out ./out
 # DISC2 もある場合
 python3 convert_epc.py --iso DISC1.ISO --iso2 DISC2.ISO --out ./out
 
+# 3枚統合（DISC1 + 21CD10Z + 21CD08X、全198カタログ・アプリ v5 用）
+# カタログは引数順の先勝ち（共有カタログは 10Z 優先になる並び）、
+# ルートマスタ（KSRBHMH / SYSBMST）は --master-disc のディスクから取る
+python3 convert_epc.py --iso 11CD081.ISO --iso2 21CD10Z.ISO \
+    --iso2 21CD08X.ISO --master-disc 1 --db-name epc_v5.db --out ./out5
+
 # iPad / ブラウザ用の単一 HTML も作る（カタログ指定）
 python3 convert_epc.py --iso HONDA_EPC.ISO --out ./out \
     --ipad-catalogs 11SA702,11SC701
